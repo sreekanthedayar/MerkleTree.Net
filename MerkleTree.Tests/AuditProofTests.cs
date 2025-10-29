@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using Xunit;
 using Clifton.Blockchain;
 
@@ -18,16 +19,16 @@ namespace MerkleTree.Tests
             MerkleHash rootHash = tree.BuildTree();
 
             List<MerkleProofHash> auditTrail = tree.AuditProof(l1);
-            Assert.True(Clifton.Blockchain.MerkleTree.VerifyAudit(rootHash, l1, auditTrail));
+            Assert.True(tree.VerifyAuditWithAlgorithm(rootHash, l1, auditTrail));
 
             auditTrail = tree.AuditProof(l2);
-            Assert.True(Clifton.Blockchain.MerkleTree.VerifyAudit(rootHash, l2, auditTrail));
+            Assert.True(tree.VerifyAuditWithAlgorithm(rootHash, l2, auditTrail));
 
             auditTrail = tree.AuditProof(l3);
-            Assert.True(Clifton.Blockchain.MerkleTree.VerifyAudit(rootHash, l3, auditTrail));
+            Assert.True(tree.VerifyAuditWithAlgorithm(rootHash, l3, auditTrail));
 
             auditTrail = tree.AuditProof(l4);
-            Assert.True(Clifton.Blockchain.MerkleTree.VerifyAudit(rootHash, l4, auditTrail));
+            Assert.True(tree.VerifyAuditWithAlgorithm(rootHash, l4, auditTrail));
         }
 
         [Theory]
@@ -51,7 +52,7 @@ namespace MerkleTree.Tests
 
             var targetLeaf = hashes[targetIndex];
             var proof = tree.AuditProof(targetLeaf);
-            bool isValid = Clifton.Blockchain.MerkleTree.VerifyAudit(tree.RootNode.Hash, targetLeaf, proof);
+            bool isValid = tree.VerifyAuditWithAlgorithm(tree.RootNode.Hash, targetLeaf, proof);
 
             Assert.True(isValid);
         }
@@ -70,8 +71,48 @@ namespace MerkleTree.Tests
             // Tamper with root hash
             var tamperedRoot = MerkleHash.Create("tampered");
 
-            bool isValid = Clifton.Blockchain.MerkleTree.VerifyAudit(tamperedRoot, targetLeaf, proof);
+            bool isValid = tree.VerifyAuditWithAlgorithm(tamperedRoot, targetLeaf, proof);
 
+            Assert.False(isValid);
+        }
+
+        [Fact]
+        public void VerifyAudit_TamperedLeaf_ReturnsFalse()
+        {
+            // Arrange
+            var tree = new Clifton.Blockchain.MerkleTree();
+            tree.AppendLeaf(MerkleHash.Create("leaf1"));
+            tree.AppendLeaf(MerkleHash.Create("leaf2"));
+            tree.BuildTree();
+
+            var originalLeaf = MerkleHash.Create("leaf1");
+            var proof = tree.AuditProof(originalLeaf);
+
+            // Act: Use a different leaf for verification
+            var tamperedLeaf = MerkleHash.Create("tamperedLeaf");
+            bool isValid = tree.VerifyAuditWithAlgorithm(tree.RootNode.Hash, tamperedLeaf, proof);
+
+            // Assert
+            Assert.False(isValid);
+        }
+
+        [Fact]
+        public void VerifyAudit_TamperedProofPath_ReturnsFalse()
+        {
+            // Arrange
+            var tree = new Clifton.Blockchain.MerkleTree();
+            tree.AppendLeaf(MerkleHash.Create("leaf1"));
+            tree.AppendLeaf(MerkleHash.Create("leaf2"));
+            tree.BuildTree();
+
+            var targetLeaf = MerkleHash.Create("leaf1");
+            var proof = tree.AuditProof(targetLeaf);
+
+            // Act: Tamper with one of the hashes in the proof
+            proof[0] = new MerkleProofHash(MerkleHash.Create("tamperedProof"), proof[0].Direction);
+            bool isValid = tree.VerifyAuditWithAlgorithm(tree.RootNode.Hash, targetLeaf, proof);
+
+            // Assert
             Assert.False(isValid);
         }
 

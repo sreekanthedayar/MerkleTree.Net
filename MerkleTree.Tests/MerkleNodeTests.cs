@@ -24,19 +24,13 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
-        public void LeftHashVerificationTest()
-        {
-            MerkleNode parentNode = new MerkleNode();
-            MerkleNode leftNode = new MerkleNode();
-            leftNode.ComputeHash(Encoding.UTF8.GetBytes("abc"));
-            parentNode.SetLeftNode(leftNode);
-            Assert.True(parentNode.VerifyHash());
-        }
-
-        [Fact]
         public void LeftRightHashVerificationTest()
         {
-            MerkleNode parentNode = CreateParentNode("abc", "def");
+            // Arrange
+            var leftNode = new MerkleNode(MerkleHash.Create("abc"));
+            var rightNode = new MerkleNode(MerkleHash.Create("def"));
+            var parentNode = new MerkleNode(leftNode, rightNode);
+            // Act & Assert
             Assert.True(parentNode.VerifyHash());
         }
 
@@ -44,8 +38,12 @@ namespace MerkleTree.Tests
         public void NodesEqualTest()
         {
             MerkleNode parentNode1 = CreateParentNode("abc", "def");
-            MerkleNode parentNode2 = CreateParentNode("abc", "def");
+            var leftNode = new MerkleNode(MerkleHash.Create("abc"));
+            var rightNode = new MerkleNode(MerkleHash.Create("def"));
+            var parentNode2 = new MerkleNode(leftNode, rightNode);
+
             Assert.True(parentNode1.Equals(parentNode2));
+            Assert.Equal(parentNode1.Hash, parentNode2.Hash);
         }
 
         [Fact]
@@ -60,24 +58,32 @@ namespace MerkleTree.Tests
         public void VerifyTwoLevelTree()
         {
             MerkleNode parentNode1 = CreateParentNode("abc", "def");
-            MerkleNode parentNode2 = CreateParentNode("123", "456");
-            MerkleNode rootNode = new MerkleNode();
-            rootNode.SetLeftNode(parentNode1);
-            rootNode.SetRightNode(parentNode2);
+            MerkleNode parentNode2 = CreateParentNode("123", "456"); 
+            MerkleNode rootNode = new MerkleNode(parentNode1, parentNode2);
             Assert.True(rootNode.VerifyHash());
         }
 
         private MerkleNode CreateParentNode(string leftData, string rightData)
         {
-            MerkleNode parentNode = new MerkleNode();
-            MerkleNode leftNode = new MerkleNode();
-            MerkleNode rightNode = new MerkleNode();
-            leftNode.ComputeHash(Encoding.UTF8.GetBytes(leftData));
-            rightNode.ComputeHash(Encoding.UTF8.GetBytes(rightData));
-            parentNode.SetLeftNode(leftNode);
-            parentNode.SetRightNode(rightNode);
+            var leftNode = new MerkleNode(MerkleHash.Create(leftData));
+            var rightNode = new MerkleNode(MerkleHash.Create(rightData));
+            return new MerkleNode(leftNode, rightNode);
+        }
 
-            return parentNode;
+        [Fact]
+        public void CreateNode_WithNon32ByteHashAlgorithm_ThrowsException()
+        {
+            // Arrange
+            using var sha512 = System.Security.Cryptography.SHA512.Create();
+            var leftNode = new MerkleNode(MerkleHash.Create("left")); // Uses default SHA256
+            var rightNode = new MerkleNode(MerkleHash.Create("right"));
+
+            // Act
+            // MerkleNode constructor calls MerkleHash.Create, which enforces a 32-byte hash length
+            var ex = Assert.Throws<MerkleException>(() => new MerkleNode(leftNode, rightNode, sha512));
+
+            // Assert
+            Assert.Contains("Unexpected hash length", ex.Message);
         }
     }
 }

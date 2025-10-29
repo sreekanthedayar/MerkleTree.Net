@@ -59,5 +59,42 @@ namespace MerkleTree.Tests
             Assert.False(string.IsNullOrWhiteSpace(hex));
             Assert.Equal(Constants.HASH_LENGTH * 2, hex.Length);
         }
+
+        [Fact]
+        public void FromHex_ToHex_RoundTrip()
+        {
+            // Arrange
+            var originalHash = MerkleHash.Create("round-trip test");
+            
+            // Act
+            string hex = originalHash.ToHex();
+            var finalHash = MerkleHash.FromHex(hex);
+
+            // Assert
+            Assert.Equal(originalHash, finalHash);
+        }
+
+        [Theory]
+        [InlineData("not-a-hex-string")]
+        [InlineData("12345")] // Odd length
+        [InlineData("gg")] // Invalid characters
+        public void FromHex_InvalidString_ThrowsException(string invalidHex)
+        {
+            // Act & Assert
+            Assert.Throws<MerkleException>(() => MerkleHash.FromHex(invalidHex));
+        }
+
+        [Fact]
+        public void Create_WithNon32ByteHashAlgorithm_ThrowsException()
+        {
+            // Arrange
+            byte[] input = System.Text.Encoding.UTF8.GetBytes("custom algorithm test");
+            using var sha512 = System.Security.Cryptography.SHA512.Create(); // Produces a 64-byte hash
+
+            // Act & Assert
+            // MerkleHash.Create calls SetHash, which enforces a 32-byte hash length via Constants.HASH_LENGTH
+            var ex = Assert.Throws<MerkleException>(() => MerkleHash.Create(input, sha512));
+            Assert.Contains("Unexpected hash length", ex.Message);
+        }
     }
 }
