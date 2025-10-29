@@ -1,6 +1,6 @@
 # MerkleTree.Net8
 
-A .NET 8 port of [Marc Clifton's MerkleTree](https://github.com/cliftonm/MerkleTree).
+A Modern .NET port of [Marc Clifton's MerkleTree](https://github.com/cliftonm/MerkleTree).
 
 Cryptographic Merkle tree implementation with audit proofs and consistency proofs for blockchain, transparency logs, and data integrity verification.
 
@@ -88,7 +88,7 @@ bool consistent = MerkleTree.VerifyConsistency(oldRoot, proof);
 ## Acknowledgements
 
 Original: [Marc Clifton](https://github.com/cliftonm/MerkleTree)  
-.NET 8 Port: Sreekanth Edayar
+Modern .NET  Port: Sreekanth Edayar
 
 ## License
 
