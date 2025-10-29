@@ -6,7 +6,7 @@ Cryptographic Merkle tree implementation with audit proofs and consistency proof
 
 ## Installation
 ```bash
-dotnet add package Clifton.Blockchain.MerkleTree
+dotnet add package MerkleTree.Net --version 1.0.1
 ```
 
 ## Quick Start
