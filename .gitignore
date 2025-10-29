@@ -1,0 +1,21 @@
+# Build artifacts
+bin/
+obj/
+
+# VS Code
+.vscode/
+# User-specific files
+*.user
+*.suo
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Logs
+*.log
+
+# Others
+*.DS_Store
+*.sln.docstates
