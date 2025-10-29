@@ -1,4 +1,4 @@
-# MerkleTree.Net8
+# MerkleTree.Net
 
 A Modern .NET port of [Marc Clifton's MerkleTree](https://github.com/cliftonm/MerkleTree).
 
