@@ -1,14 +1,14 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-
+using System.Security.Cryptography;
 
 namespace Clifton.Blockchain
 {
     public class MerkleTree
     {
         public MerkleNode RootNode { get; protected set; } = null!;
+        public HashAlgorithm HashAlgorithm { get; protected set; }
 
         protected List<MerkleNode> nodes = new List<MerkleNode>();
         protected List<MerkleNode> leaves = new List<MerkleNode>();
@@ -23,6 +23,20 @@ namespace Clifton.Blockchain
 
         public MerkleTree()
         {
+            HashAlgorithm = SHA256.Create();
+        }
+
+        /// <summary>
+        /// Constructor that accepts a custom hash algorithm.
+        /// </summary>
+        public MerkleTree(HashAlgorithm hashAlgorithm)
+        {
+            if (hashAlgorithm == null)
+            {
+                throw new ArgumentNullException(nameof(hashAlgorithm));
+            }
+
+            HashAlgorithm = hashAlgorithm;
         }
 
         public MerkleNode AppendLeaf(MerkleNode node)
@@ -48,6 +62,34 @@ namespace Clifton.Blockchain
             leaves.Add(node);
 
             return node;
+        }
+
+        /// <summary>
+        /// Adds a leaf from raw byte data with optional auto-hashing.
+        /// </summary>
+        public MerkleNode AddLeaf(byte[] data, bool autoHash = false)
+        {
+            if (data == null)
+            {
+                throw new ArgumentNullException(nameof(data));
+            }
+
+            MerkleHash hash;
+            if (autoHash)
+            {
+                hash = MerkleHash.Create(data, HashAlgorithm);
+            }
+            else
+            {
+                // Assume data is already a hash
+                if (data.Length != Constants.HASH_LENGTH)
+                {
+                    throw new MerkleException($"Data must be {Constants.HASH_LENGTH} bytes when autoHash is false");
+                }
+                hash = MerkleHash.Create(data);
+            }
+
+            return AppendLeaf(hash);
         }
 
         public List<MerkleNode> AppendLeaves(MerkleHash[] hashes)
@@ -88,7 +130,6 @@ namespace Clifton.Blockchain
             {
                 var lastLeaf = leaves.Last();
                 var l = AppendLeaf(lastLeaf.Hash);
-                // l.Text = lastLeaf.Text;
             }
         }
 
@@ -97,20 +138,11 @@ namespace Clifton.Blockchain
         /// </summary>
         public MerkleHash BuildTree()
         {
-            // We do not call FixOddNumberLeaves because we want the ability to append 
-            // leaves and add additional trees without creating unecessary wasted space in the tree.
             Contract(() => leaves.Count > 0, "Cannot build a tree with no leaves.");
             BuildTree(leaves);
 
             return RootNode.Hash;
         }
-
-        // Why would we need this?
-        //public void RegisterRoot(MerkleNode node)
-        //{
-        //    Contract(() => node.Parent == null, "Node is not a root node.");
-        //    rootNode = node;
-        //}
 
         /// <summary>
         /// Returns the audit proof hashes to reconstruct the root hash.
@@ -140,16 +172,11 @@ namespace Clifton.Blockchain
         /// </summary>
         public List<MerkleProofHash> ConsistencyProof(int m)
         {
-            // Rule 1:
-            // Find the leftmost node of the tree from which we can start our consistency proof.
-            // Set k, the number of leaves for this node.
             List<MerkleProofHash> hashNodes = new List<MerkleProofHash>();
             int idx = (int)Math.Log(m, 2);
 
-            // Get the leftmost node.
             MerkleNode node = leaves[0];
 
-            // Traverse up the tree until we get to the node specified by idx.
             while (idx > 0)
             {
                 if (node.Parent == null)
@@ -169,12 +196,6 @@ namespace Clifton.Blockchain
             }
             else
             {
-                // Rule 2:
-                // Set the initial sibling node (SN) to the sibling of the node acquired by Rule 1.
-                // if m-k == # of SN's leaves, concatenate the hash of the sibling SN and exit Rule 2, as this represents the hash of the old root.
-                // if m - k < # of SN's leaves, set SN to SN's left child node and repeat Rule 2.
-
-                // sibling node:
                 if (node.Parent == null) throw new InvalidOperationException("Node parent is null");
                 MerkleNode? sn = node.Parent.RightNode;
                 bool traverseTree = true;
@@ -195,20 +216,17 @@ namespace Clifton.Blockchain
                         hashNodes.Add(new MerkleProofHash(sn.Hash, MerkleProofHash.Branch.OldRoot));
                         if (sn.Parent == null)
                         {
-                            // This indicates a malformed tree or an invalid 'm' value that the initial checks didn't catch.
                             throw new MerkleException("Invalid tree structure encountered during consistency proof.");
                         }
                         sn = sn.Parent.RightNode;
                         k += sncount;
                     }
-                    else // (m - k < sncount)
+                    else
                     {
                         sn = sn.LeftNode;
                     }
                 }
             }
-
-            // Rule 3: Apply ConsistencyAuditProof below.
 
             return hashNodes;
         }
@@ -229,6 +247,7 @@ namespace Clifton.Blockchain
 
         /// <summary>
         /// Verify that if we walk up the tree from a particular leaf, we encounter the expected root hash.
+        /// Static method using default SHA256.
         /// </summary>
         public static bool VerifyAudit(MerkleHash rootHash, MerkleHash leafHash, List<MerkleProofHash> auditTrail)
         {
@@ -240,6 +259,25 @@ namespace Clifton.Blockchain
                 testHash = auditHash.Direction == MerkleProofHash.Branch.Left ?
                     MerkleHash.Create(testHash.Value.Concat(auditHash.Hash.Value).ToArray()) :
                     MerkleHash.Create(auditHash.Hash.Value.Concat(testHash.Value).ToArray());
+            }
+
+            return rootHash == testHash;
+        }
+
+        /// <summary>
+        /// Verify audit using this tree's hash algorithm.
+        /// Instance method.
+        /// </summary>
+        public bool VerifyAuditWithAlgorithm(MerkleHash rootHash, MerkleHash leafHash, List<MerkleProofHash> auditTrail)
+        {
+            Contract(() => auditTrail.Count > 0, "Audit trail cannot be empty.");
+            MerkleHash testHash = leafHash;
+
+            foreach (MerkleProofHash auditHash in auditTrail)
+            {
+                testHash = auditHash.Direction == MerkleProofHash.Branch.Left ?
+                    MerkleHash.Create(testHash.Value.Concat(auditHash.Hash.Value).ToArray(), HashAlgorithm) :
+                    MerkleHash.Create(auditHash.Hash.Value.Concat(testHash.Value).ToArray(), HashAlgorithm);
             }
 
             return rootHash == testHash;
@@ -281,14 +319,13 @@ namespace Clifton.Blockchain
             {
                 lhash = proof[proof.Count - 2].Hash;
                 int hidx = proof.Count - 1;
-                hash = rhash = MerkleTree.ComputeHash(lhash, proof[hidx].Hash);
+                hash = rhash = ComputeHashStatic(lhash, proof[hidx].Hash);
                 hidx -= 2;
 
-                // foreach (var nextHashNode in proof.Skip(1))
                 while (hidx >= 0)
                 {
                     lhash = proof[hidx].Hash;
-                    hash = rhash = MerkleTree.ComputeHash(lhash, rhash);
+                    hash = rhash = ComputeHashStatic(lhash, rhash);
 
                     --hidx;
                 }
@@ -301,9 +338,20 @@ namespace Clifton.Blockchain
             return hash == oldRootHash;
         }
 
-        public static MerkleHash ComputeHash(MerkleHash left, MerkleHash right)
+        /// <summary>
+        /// Static method to compute hash using default SHA256.
+        /// </summary>
+        public static MerkleHash ComputeHashStatic(MerkleHash left, MerkleHash right)
         {
             return MerkleHash.Create(left.Value.Concat(right.Value).ToArray());
+        }
+
+        /// <summary>
+        /// Instance method to compute hash using this tree's hash algorithm.
+        /// </summary>
+        public MerkleHash ComputeHashWithAlgorithm(MerkleHash left, MerkleHash right)
+        {
+            return MerkleHash.Create(left.Value.Concat(right.Value).ToArray(), HashAlgorithm);
         }
 
         protected void BuildAuditTrail(List<MerkleProofHash> auditTrail, MerkleNode? parent, MerkleNode child)
@@ -314,8 +362,6 @@ namespace Clifton.Blockchain
                 var nextChild = parent.LeftNode == child ? parent.RightNode : parent.LeftNode;
                 var direction = parent.LeftNode == child ? MerkleProofHash.Branch.Left : MerkleProofHash.Branch.Right;
 
-                // For the last leaf, the right node may not exist.  In that case, we ignore it because it's
-                // the hash we are given to verify.
                 if (nextChild != null)
                 {
                     auditTrail.Add(new MerkleProofHash(nextChild.Hash, direction));
@@ -327,15 +373,12 @@ namespace Clifton.Blockchain
 
         protected MerkleNode? FindLeaf(MerkleHash leafHash)
         {
-            // We use First because a tree with an odd number of leaves will duplicate the last leaf
-            // and will therefore have the same hash.
             return leaves.FirstOrDefault(l => l.Hash == leafHash);
         }
 
         /// <summary>
         /// Reduce the current list of n nodes to n/2 parents.
         /// </summary>
-        /// <param name="nodes"></param>
         protected void BuildTree(List<MerkleNode> nodes)
         {
             Contract(() => nodes.Count > 0, "node list not expected to be empty.");
@@ -351,7 +394,6 @@ namespace Clifton.Blockchain
                 for (int i = 0; i < nodes.Count; i += 2)
                 {
                     MerkleNode? right = (i + 1 < nodes.Count) ? nodes[i + 1] : null;
-                    // Constructing the MerkleNode resolves the right node being null.
                     MerkleNode parent = CreateNode(nodes[i], right);
                     parents.Add(parent);
                 }
@@ -360,9 +402,6 @@ namespace Clifton.Blockchain
             }
         }
 
-        // Override in derived class to extend the behavior.
-        // Alternatively, we could implement a factory pattern.
-
         protected virtual MerkleNode CreateNode(MerkleHash hash)
         {
             return new MerkleNode(hash);
@@ -370,7 +409,7 @@ namespace Clifton.Blockchain
 
         protected virtual MerkleNode CreateNode(MerkleNode left, MerkleNode? right)
         {
-            return new MerkleNode(left, right);
+            return new MerkleNode(left, right, HashAlgorithm);
         }
     }
 }

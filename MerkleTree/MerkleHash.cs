@@ -1,5 +1,4 @@
-﻿  
-using System;  
+﻿using System;  
 using System.Linq;  
 using System.Security.Cryptography;  
 using System.Text;  
@@ -21,17 +20,35 @@ namespace Clifton.Blockchain
             hash.ComputeHash(buffer);  
   
             return hash;  
-        }  
+        }
+
+        public static MerkleHash Create(byte[] buffer, HashAlgorithm hashAlgorithm)
+        {
+            MerkleHash hash = new MerkleHash();
+            hash.ComputeHash(buffer, hashAlgorithm);
+
+            return hash;
+        }
   
         public static MerkleHash Create(string buffer)  
         {  
             return Create(Encoding.UTF8.GetBytes(buffer));  
-        }  
+        }
+
+        public static MerkleHash Create(string buffer, HashAlgorithm hashAlgorithm)
+        {
+            return Create(Encoding.UTF8.GetBytes(buffer), hashAlgorithm);
+        }
   
         public static MerkleHash Create(MerkleHash left, MerkleHash right)  
         {  
             return Create(left.Value.Concat(right.Value).ToArray());  
-        }  
+        }
+
+        public static MerkleHash Create(MerkleHash left, MerkleHash right, HashAlgorithm hashAlgorithm)
+        {
+            return Create(left.Value.Concat(right.Value).ToArray(), hashAlgorithm);
+        }
   
         public static bool operator ==(MerkleHash h1, MerkleHash h2)  
         {  
@@ -59,10 +76,42 @@ namespace Clifton.Blockchain
             
             return Equals(other);  
         }
+
         public override string ToString()  
         {  
-            return BitConverter.ToString(Value).Replace("-", "");  
-        }  
+            return ToHex();
+        }
+
+        /// <summary>
+        /// Converts the hash to a hexadecimal string using HexEncoder.
+        /// </summary>
+        public string ToHex()
+        {
+            return HexEncoder.Encode(Value);
+        }
+
+        /// <summary>
+        /// Creates a MerkleHash from a hexadecimal string.
+        /// </summary>
+        public static MerkleHash FromHex(string hexString)
+        {
+            if (string.IsNullOrWhiteSpace(hexString))
+            {
+                throw new ArgumentException("Hex string cannot be null or empty", nameof(hexString));
+            }
+
+            try
+            {
+                byte[] bytes = HexEncoder.Decode(hexString);
+                MerkleHash hash = new MerkleHash();
+                hash.SetHash(bytes);
+                return hash;
+            }
+            catch (FormatException ex)
+            {
+                throw new MerkleException($"Invalid hex string format: {ex.Message}");
+            }
+        }
   
         public void ComputeHash(byte[] buffer)  
         {  
@@ -70,7 +119,17 @@ namespace Clifton.Blockchain
             {  
                 SetHash(sha256.ComputeHash(buffer));  
             }  
-        }  
+        }
+
+        public void ComputeHash(byte[] buffer, HashAlgorithm hashAlgorithm)
+        {
+            if (hashAlgorithm == null)
+            {
+                throw new ArgumentNullException(nameof(hashAlgorithm));
+            }
+
+            SetHash(hashAlgorithm.ComputeHash(buffer));
+        }
   
         public void SetHash(byte[] hash)  
         {  

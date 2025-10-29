@@ -11,16 +11,16 @@
 
     <!-- NuGet Package Metadata -->
     <PackageId>MerkleTree.Net</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>Marc Clifton, Sreekanth Edayar</Authors>
-    <Description>A .NET 8 port of Marc Clifton's MerkleTree library. Provides cryptographic Merkle tree implementation with audit proofs and consistency proofs for blockchain and transparency log applications.</Description>
-    <Copyright>Copyright (c) Marc Clifton. .NET 8 port by Sreekanth Edayar</Copyright>
+    <Description>A .NET port of Marc Clifton's MerkleTree library. Provides cryptographic Merkle tree implementation with audit proofs and consistency proofs for blockchain and transparency log applications.</Description>
+    <Copyright>Copyright (c) Marc Clifton. .NET port by Sreekanth Edayar</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/sreekanthedayar/MerkleTree.Net8</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/sreekanthedayar/MerkleTree.Net8</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/sreekanthedayar/MerkleTree.Net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/sreekanthedayar/MerkleTree.Net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>merkle-tree;blockchain;cryptography;audit-proof;consistency-proof;transparency-log;dotnet8</PackageTags>
-    <PackageReleaseNotes>v1.0.0: .NET 8 port with modern C# features, nullable reference types, improved resource management, and comprehensive test coverage. Original implementation by Marc Clifton: https://github.com/cliftonm/MerkleTree</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.1: Modern .NET port with C# features, nullable reference types, improved resource management, and comprehensive test coverage. Original implementation by Marc Clifton: https://github.com/cliftonm/MerkleTree</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     
     <!-- SourceLink -->
