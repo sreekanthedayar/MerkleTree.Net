@@ -5,13 +5,14 @@ using System.Security.Cryptography;
 
 namespace Clifton.Blockchain
 {
-    public class MerkleTree
+    public class MerkleTree : IDisposable
     {
         public MerkleNode RootNode { get; protected set; } = null!;
         public HashAlgorithm HashAlgorithm { get; protected set; }
 
         protected List<MerkleNode> nodes = new List<MerkleNode>();
         protected List<MerkleNode> leaves = new List<MerkleNode>();
+        private bool _disposed = false;
 
         public static void Contract(Func<bool> action, string msg)
         {
@@ -39,6 +40,11 @@ namespace Clifton.Blockchain
             HashAlgorithm = hashAlgorithm;
         }
 
+        /// <summary>
+        /// Appends a pre-existing MerkleNode as a leaf.
+        /// </summary>
+        /// <param name="node">The node to append.</param>
+        /// <returns>The appended node.</returns>
         public MerkleNode AppendLeaf(MerkleNode node)
         {
             nodes.Add(node);
@@ -47,14 +53,24 @@ namespace Clifton.Blockchain
             return node;
         }
 
+        /// <summary>
+        /// Appends an array of pre-existing MerkleNodes as leaves.
+        /// </summary>
+        /// <param name="nodes">The array of nodes to append.</param>
         public void AppendLeaves(MerkleNode[] nodes)
         {
-            foreach (var n in nodes)
+            // Use for loop instead of foreach for better performance
+            for (int i = 0; i < nodes.Length; i++)
             {
-                AppendLeaf(n);
+                AppendLeaf(nodes[i]);
             }
         }
 
+        /// <summary>
+        /// Creates a new MerkleNode from a hash and appends it as a leaf.
+        /// </summary>
+        /// <param name="hash">The hash to append.</param>
+        /// <returns>The newly created and appended node.</returns>
         public MerkleNode AppendLeaf(MerkleHash hash)
         {
             var node = CreateNode(hash);
@@ -67,6 +83,9 @@ namespace Clifton.Blockchain
         /// <summary>
         /// Adds a leaf from raw byte data with optional auto-hashing.
         /// </summary>
+        /// <param name="data">The raw byte data for the leaf.</param>
+        /// <param name="autoHash">If true, the data is hashed using the tree's hash algorithm. If false, the data is assumed to be a pre-computed hash of the correct length.</param>
+        /// <returns>The newly created and appended node.</returns>
         public MerkleNode AddLeaf(byte[] data, bool autoHash = false)
         {
             if (data == null)
@@ -92,25 +111,36 @@ namespace Clifton.Blockchain
             return AppendLeaf(hash);
         }
 
+        /// <summary>
+        /// Appends an array of hashes as new leaves.
+        /// </summary>
+        /// <param name="hashes">The array of hashes to append.</param>
+        /// <returns>A list of the newly created and appended nodes.</returns>
         public List<MerkleNode> AppendLeaves(MerkleHash[] hashes)
         {
-            List<MerkleNode> nodes = new List<MerkleNode>();
+            List<MerkleNode> nodes = new List<MerkleNode>(hashes.Length);
 
-            foreach (var h in hashes)
+            for (int i = 0; i < hashes.Length; i++)
             {
-                nodes.Add(AppendLeaf(h));
+                nodes.Add(AppendLeaf(hashes[i]));
             }
 
             return nodes;
         }
 
+        /// <summary>
+        /// Appends all leaves from another tree to this tree and rebuilds the current tree.
+        /// </summary>
+        /// <param name="tree">The tree from which to append leaves.</param>
+        /// <returns>The new root hash of the current tree.</returns>
         public MerkleHash AddTree(MerkleTree tree)
         {
             Contract(() => leaves.Count > 0, "Cannot add to a tree with no leaves.");
 
-            foreach (var l in tree.leaves)
+            // Use for loop instead of foreach
+            for (int i = 0; i < tree.leaves.Count; i++)
             {
-                AppendLeaf(l);
+                AppendLeaf(tree.leaves[i]);
             }
 
             return BuildTree();
@@ -128,13 +158,13 @@ namespace Clifton.Blockchain
         {
             if ((leaves.Count & 1) == 1)
             {
-                var lastLeaf = leaves.Last();
+                var lastLeaf = leaves[leaves.Count - 1]; // Use indexer instead of Last()
                 var l = AppendLeaf(lastLeaf.Hash);
             }
         }
 
         /// <summary>
-        /// Builds the tree for leaves and returns the root node.
+        /// Computes the Merkle Tree based on the appended leaves and returns the root hash.
         /// </summary>
         public MerkleHash BuildTree()
         {
@@ -145,7 +175,7 @@ namespace Clifton.Blockchain
         }
 
         /// <summary>
-        /// Returns the audit proof hashes to reconstruct the root hash.
+        /// Generates an audit proof for a specific leaf. The proof consists of the sibling hashes required to compute the root hash.
         /// </summary>
         /// <param name="leafHash">The leaf hash we want to verify exists in the tree.</param>
         /// <returns>The audit trail of hashes needed to create the root, or an empty list if the leaf hash doesn't exist.</returns>
@@ -166,10 +196,10 @@ namespace Clifton.Blockchain
         }
 
         /// <summary>
-        /// Verifies ordering and consistency of the first n leaves, such that we reach the expected subroot.
-        /// This verifies that the prior data has not been changed and that leaf order has been preserved.
-        /// m is the number of leaves for which to do a consistency check.
+        /// Generates a consistency proof between two versions of the tree.
+        /// This proves that the newer version of the tree is a valid append-only extension of the older version.
         /// </summary>
+        /// <param name="m">The number of leaves in the older version of the tree.</param>
         public List<MerkleProofHash> ConsistencyProof(int m)
         {
             List<MerkleProofHash> hashNodes = new List<MerkleProofHash>();
@@ -246,38 +276,46 @@ namespace Clifton.Blockchain
         }
 
         /// <summary>
-        /// Verify that if we walk up the tree from a particular leaf, we encounter the expected root hash.
+        /// Verifies an audit proof, confirming that a leaf hash is included in the tree that produced the given root hash.
         /// Static method using default SHA256.
         /// </summary>
         public static bool VerifyAudit(MerkleHash rootHash, MerkleHash leafHash, List<MerkleProofHash> auditTrail)
         {
             Contract(() => auditTrail.Count > 0, "Audit trail cannot be empty.");
             MerkleHash testHash = leafHash;
+            // Allocate the buffer once outside the loop.
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
 
-            foreach (MerkleProofHash auditHash in auditTrail)
+            // Use for loop instead of foreach for better performance
+            for (int i = 0; i < auditTrail.Count; i++)
             {
+                var auditHash = auditTrail[i];
                 testHash = auditHash.Direction == MerkleProofHash.Branch.Left ?
-                    MerkleHash.Create(testHash.Value.Concat(auditHash.Hash.Value).ToArray()) :
-                    MerkleHash.Create(auditHash.Hash.Value.Concat(testHash.Value).ToArray());
+                    MerkleHash.Create(ComputeCombinedHash(testHash, auditHash.Hash, buffer)) :
+                    MerkleHash.Create(ComputeCombinedHash(auditHash.Hash, testHash, buffer));
             }
 
             return rootHash == testHash;
         }
 
         /// <summary>
-        /// Verify audit using this tree's hash algorithm.
+        /// Verifies an audit proof using this tree's specific hash algorithm.
         /// Instance method.
         /// </summary>
         public bool VerifyAuditWithAlgorithm(MerkleHash rootHash, MerkleHash leafHash, List<MerkleProofHash> auditTrail)
         {
             Contract(() => auditTrail.Count > 0, "Audit trail cannot be empty.");
             MerkleHash testHash = leafHash;
+            // Allocate the buffer once outside the loop.
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
 
-            foreach (MerkleProofHash auditHash in auditTrail)
+            // Use for loop instead of foreach
+            for (int i = 0; i < auditTrail.Count; i++)
             {
+                var auditHash = auditTrail[i];
                 testHash = auditHash.Direction == MerkleProofHash.Branch.Left ?
-                    MerkleHash.Create(testHash.Value.Concat(auditHash.Hash.Value).ToArray(), HashAlgorithm) :
-                    MerkleHash.Create(auditHash.Hash.Value.Concat(testHash.Value).ToArray(), HashAlgorithm);
+                    MerkleHash.Create(ComputeCombinedHash(testHash, auditHash.Hash, buffer), HashAlgorithm) :
+                    MerkleHash.Create(ComputeCombinedHash(auditHash.Hash, testHash, buffer), HashAlgorithm);
             }
 
             return rootHash == testHash;
@@ -289,21 +327,25 @@ namespace Clifton.Blockchain
         public static List<Tuple<MerkleHash, MerkleHash>> AuditHashPairs(MerkleHash leafHash, List<MerkleProofHash> auditTrail)
         {
             Contract(() => auditTrail.Count > 0, "Audit trail cannot be empty.");
-            var auditPairs = new List<Tuple<MerkleHash, MerkleHash>>();
+            var auditPairs = new List<Tuple<MerkleHash, MerkleHash>>(auditTrail.Count);
             MerkleHash testHash = leafHash;
+            // Allocate the buffer once outside the loop.
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
 
-            foreach (MerkleProofHash auditHash in auditTrail)
+            // Use for loop instead of foreach
+            for (int i = 0; i < auditTrail.Count; i++)
             {
+                var auditHash = auditTrail[i];
                 switch (auditHash.Direction)
                 {
                     case MerkleProofHash.Branch.Left:
                         auditPairs.Add(new Tuple<MerkleHash, MerkleHash>(testHash, auditHash.Hash));
-                        testHash = MerkleHash.Create(testHash.Value.Concat(auditHash.Hash.Value).ToArray());
+                        testHash = MerkleHash.Create(ComputeCombinedHash(testHash, auditHash.Hash, buffer));
                         break;
 
                     case MerkleProofHash.Branch.Right:
                         auditPairs.Add(new Tuple<MerkleHash, MerkleHash>(auditHash.Hash, testHash));
-                        testHash = MerkleHash.Create(auditHash.Hash.Value.Concat(testHash.Value).ToArray());
+                        testHash = MerkleHash.Create(ComputeCombinedHash(auditHash.Hash, testHash, buffer));
                         break;
                 }
             }
@@ -311,6 +353,11 @@ namespace Clifton.Blockchain
             return auditPairs;
         }
 
+        /// <summary>
+        /// Verifies a consistency proof, confirming that an old root hash is consistent with a newer version of the tree.
+        /// </summary>
+        /// <param name="oldRootHash">The root hash of the older, smaller tree.</param>
+        /// <param name="proof">The consistency proof generated from the newer, larger tree.</param>
         public static bool VerifyConsistency(MerkleHash oldRootHash, List<MerkleProofHash> proof)
         {
             MerkleHash hash, lhash, rhash;
@@ -343,7 +390,10 @@ namespace Clifton.Blockchain
         /// </summary>
         public static MerkleHash ComputeHashStatic(MerkleHash left, MerkleHash right)
         {
-            return MerkleHash.Create(left.Value.Concat(right.Value).ToArray());
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
+            left.Value.CopyTo(buffer);
+            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
+            return MerkleHash.Create(buffer);
         }
 
         /// <summary>
@@ -351,7 +401,10 @@ namespace Clifton.Blockchain
         /// </summary>
         public MerkleHash ComputeHashWithAlgorithm(MerkleHash left, MerkleHash right)
         {
-            return MerkleHash.Create(left.Value.Concat(right.Value).ToArray(), HashAlgorithm);
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
+            left.Value.CopyTo(buffer);
+            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
+            return MerkleHash.Create(buffer, HashAlgorithm);
         }
 
         protected void BuildAuditTrail(List<MerkleProofHash> auditTrail, MerkleNode? parent, MerkleNode child)
@@ -371,9 +424,24 @@ namespace Clifton.Blockchain
             }
         }
 
+        private static ReadOnlySpan<byte> ComputeCombinedHash(MerkleHash left, MerkleHash right, Span<byte> buffer)
+        {
+            left.Value.CopyTo(buffer);
+            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
+            return buffer;
+        }
+
         protected MerkleNode? FindLeaf(MerkleHash leafHash)
         {
-            return leaves.FirstOrDefault(l => l.Hash == leafHash);
+            // Use for loop instead of LINQ FirstOrDefault for better performance
+            for (int i = 0; i < leaves.Count; i++)
+            {
+                if (leaves[i].Hash == leafHash)
+                {
+                    return leaves[i];
+                }
+            }
+            return null;
         }
 
         /// <summary>
@@ -389,7 +457,9 @@ namespace Clifton.Blockchain
             }
             else
             {
-                List<MerkleNode> parents = new List<MerkleNode>();
+                // Pre-allocate the list with the exact capacity to avoid reallocations.
+                int parentCount = (nodes.Count + 1) / 2;
+                List<MerkleNode> parents = new List<MerkleNode>(parentCount);
 
                 for (int i = 0; i < nodes.Count; i += 2)
                 {
@@ -410,6 +480,24 @@ namespace Clifton.Blockchain
         protected virtual MerkleNode CreateNode(MerkleNode left, MerkleNode? right)
         {
             return new MerkleNode(left, right, HashAlgorithm);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    HashAlgorithm?.Dispose();
+                }
+                _disposed = true;
+            }
         }
     }
 }

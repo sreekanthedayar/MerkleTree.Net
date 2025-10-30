@@ -203,9 +203,7 @@ namespace Clifton.Blockchain
                 return;  
             }  
               
-            Hash = RightNode == null ?  
-                LeftNode.Hash :   
-                MerkleHash.Create(LeftNode.Hash.Value.Concat(RightNode.Hash.Value).ToArray());  
+            Hash = RightNode == null ? LeftNode.Hash : ComputeParentHash(LeftNode, RightNode);
             Parent?.ComputeHash();
         }
 
@@ -217,9 +215,7 @@ namespace Clifton.Blockchain
                 return;
             }
 
-            Hash = RightNode == null ?
-                LeftNode.Hash :
-                MerkleHash.Create(LeftNode.Hash.Value.Concat(RightNode.Hash.Value).ToArray(), hashAlgorithm);
+            Hash = RightNode == null ? LeftNode.Hash : ComputeParentHash(LeftNode, RightNode, hashAlgorithm);
             
             if (Parent != null && Parent._hashAlgorithm != null)
             {
@@ -229,6 +225,34 @@ namespace Clifton.Blockchain
             {
                 Parent?.ComputeHash();
             }
+        }
+
+        /// <summary>
+        /// Computes the parent hash from two child nodes using an allocation-free stack buffer.
+        /// </summary>
+        private MerkleHash ComputeParentHash(MerkleNode left, MerkleNode right)
+        {
+            // Allocate a 64-byte buffer on the stack. This avoids heap allocation.
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
+
+            // Copy the left and right hash values directly into the stack buffer.
+            left.Hash.Value.CopyTo(buffer);
+            right.Hash.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
+
+            // Create the new hash from the stack-allocated buffer.
+            return MerkleHash.Create(buffer);
+        }
+
+        /// <summary>
+        /// Computes the parent hash from two child nodes using a specified algorithm and an allocation-free stack buffer.
+        /// </summary>
+        private MerkleHash ComputeParentHash(MerkleNode left, MerkleNode right, HashAlgorithm hashAlgorithm)
+        {
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
+            left.Hash.Value.CopyTo(buffer);
+            right.Hash.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
+
+            return MerkleHash.Create(buffer, hashAlgorithm);
         }
     }  
 }

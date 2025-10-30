@@ -1,4 +1,5 @@
 ﻿using System;  
+using System.Buffers;
 using System.Linq;  
 using System.Security.Cryptography;  
 using System.Text;  
@@ -22,6 +23,17 @@ namespace Clifton.Blockchain
             return hash;  
         }
 
+        /// <summary>
+        /// Creates a MerkleHash from a span of bytes using the default SHA256 algorithm.
+        /// This is an optimized method to be used with stack-allocated buffers.
+        /// </summary>
+        public static MerkleHash Create(ReadOnlySpan<byte> buffer)
+        {
+            MerkleHash hash = new MerkleHash();
+            hash.ComputeHash(buffer);
+            return hash;
+        }
+
         public static MerkleHash Create(byte[] buffer, HashAlgorithm hashAlgorithm)
         {
             MerkleHash hash = new MerkleHash();
@@ -30,6 +42,17 @@ namespace Clifton.Blockchain
             return hash;
         }
   
+        /// <summary>
+        /// Creates a MerkleHash from a span of bytes using a specified hash algorithm.
+        /// This is an optimized method to be used with stack-allocated buffers.
+        /// </summary>
+        public static MerkleHash Create(ReadOnlySpan<byte> buffer, HashAlgorithm hashAlgorithm)
+        {
+            MerkleHash hash = new MerkleHash();
+            hash.ComputeHash(buffer, hashAlgorithm);
+            return hash;
+        }
+
         public static MerkleHash Create(string buffer)  
         {  
             return Create(Encoding.UTF8.GetBytes(buffer));  
@@ -42,12 +65,18 @@ namespace Clifton.Blockchain
   
         public static MerkleHash Create(MerkleHash left, MerkleHash right)  
         {  
-            return Create(left.Value.Concat(right.Value).ToArray());  
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
+            left.Value.CopyTo(buffer);
+            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
+            return Create(buffer);
         }
 
         public static MerkleHash Create(MerkleHash left, MerkleHash right, HashAlgorithm hashAlgorithm)
         {
-            return Create(left.Value.Concat(right.Value).ToArray(), hashAlgorithm);
+            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
+            left.Value.CopyTo(buffer);
+            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
+            return Create(buffer, hashAlgorithm);
         }
   
         public static bool operator ==(MerkleHash h1, MerkleHash h2)  
@@ -121,6 +150,41 @@ namespace Clifton.Blockchain
             }  
         }
 
+        public void ComputeHash(ReadOnlySpan<byte> buffer)
+        {
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                // Use TryComputeHash for zero-allocation path when available
+                Span<byte> hashOutput = stackalloc byte[Constants.HASH_LENGTH];
+                if (sha256.TryComputeHash(buffer, hashOutput, out int bytesWritten))
+                {
+                    if (bytesWritten != Constants.HASH_LENGTH)
+                    {
+                        throw new MerkleException($"Hash algorithm produced unexpected output length: {bytesWritten}");
+                    }
+                    SetHash(hashOutput.ToArray());
+                }
+                else
+                {
+                    // Fallback to ArrayPool if TryComputeHash fails (shouldn't happen with SHA256)
+                    byte[]? rentedArray = null;
+                    try
+                    {
+                        rentedArray = ArrayPool<byte>.Shared.Rent(buffer.Length);
+                        buffer.CopyTo(rentedArray);
+                        SetHash(sha256.ComputeHash(rentedArray, 0, buffer.Length));
+                    }
+                    finally
+                    {
+                        if (rentedArray != null)
+                        {
+                            ArrayPool<byte>.Shared.Return(rentedArray, clearArray: true);
+                        }
+                    }
+                }
+            }
+        }
+
         public void ComputeHash(byte[] buffer, HashAlgorithm hashAlgorithm)
         {
             if (hashAlgorithm == null)
@@ -131,6 +195,43 @@ namespace Clifton.Blockchain
             SetHash(hashAlgorithm.ComputeHash(buffer));
         }
   
+        public void ComputeHash(ReadOnlySpan<byte> buffer, HashAlgorithm hashAlgorithm)
+        {
+            if (hashAlgorithm == null)
+            {
+                throw new ArgumentNullException(nameof(hashAlgorithm));
+            }
+
+            // Try to use TryComputeHash for zero-allocation if available
+            Span<byte> hashOutput = stackalloc byte[Constants.HASH_LENGTH];
+            if (hashAlgorithm.TryComputeHash(buffer, hashOutput, out int bytesWritten))
+            {
+                if (bytesWritten != Constants.HASH_LENGTH)
+                {
+                    throw new MerkleException($"Hash algorithm produced unexpected output length: {bytesWritten}");
+                }
+                SetHash(hashOutput.ToArray());
+            }
+            else
+            {
+                // Fallback to ArrayPool for algorithms that don't support TryComputeHash
+                byte[]? rentedArray = null;
+                try
+                {
+                    rentedArray = ArrayPool<byte>.Shared.Rent(buffer.Length);
+                    buffer.CopyTo(rentedArray);
+                    SetHash(hashAlgorithm.ComputeHash(rentedArray, 0, buffer.Length));
+                }
+                finally
+                {
+                    if (rentedArray != null)
+                    {
+                        ArrayPool<byte>.Shared.Return(rentedArray, clearArray: true);
+                    }
+                }
+            }
+        }
+
         public void SetHash(byte[] hash)  
         {  
             MerkleTree.Contract(() => hash.Length == Constants.HASH_LENGTH, "Unexpected hash length.");  

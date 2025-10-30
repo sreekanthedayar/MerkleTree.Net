@@ -10,7 +10,7 @@ namespace MerkleTree.Tests
     {
         private bool VerifyConsistencyManually(MerkleHash oldRootHash, List<MerkleProofHash> proof, HashAlgorithm hashAlgorithm)
         {
-            if (proof == null || !proof.Any())
+            if (proof == null || proof.Count == 0)
             {
                 return false; // Or handle as per specification, maybe true if oldRoot is also empty/null
             }
