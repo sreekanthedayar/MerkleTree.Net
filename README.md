@@ -131,11 +131,10 @@ bool consistent = MerkleTree.VerifyConsistency(oldRoot, proof);
 - `FromHex(string)` - Parse from hexadecimal string
 
 **MerkleSerializer**
-- `SerializeAuditProof(List<MerkleProofHash>)` - Export audit proof to JSON
-- `DeserializeAuditProof(string)` - Import audit proof from JSON
-- `SerializeConsistencyProof(List<MerkleProofHash>)` - Export consistency proof to JSON
-- `DeserializeConsistencyProof(string)` - Import consistency proof from JSON
-- `SerializeTreeMetadata(MerkleTree)` - Export tree metadata to JSON
+- `SerializeAuditProofPackage(AuditProofPackage)` - Export audit proof to JSON
+- `DeserializeAuditProofPackage(string)` - Import audit proof from JSON
+- `SerializeConsistencyProofPackage(ConsistencyProofPackage)` - Export consistency proof to JSON
+- `DeserializeConsistencyProofPackage(string)` - Import consistency proof from JSON
 
 ## What's Different from Original
 
