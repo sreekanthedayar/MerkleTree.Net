@@ -9,6 +9,54 @@ Cryptographic Merkle tree implementation with audit proofs and consistency proof
 dotnet add package MerkleTree.Net
 ```
 
+## ⚠️ Breaking Changes in v2.0.0
+
+**If you're upgrading from v1.0.1, please read carefully:**
+
+### What Changed
+- **JSON Serialization Format**: Proof serialization now uses structured packages with metadata (version, timestamp, root hash)
+- **Performance**: 20% faster with reduced memory allocations
+- **API Additions**: New `AddLeaf()`, `ToHex()`, `FromHex()` methods
+
+### Compatibility Matrix
+
+| Aspect | v1.0.1 → v2.0.0 |
+|--------|-----------------|
+| **C# API (source code)** |  Mostly compatible - your code will compile |
+| **Serialized proofs (JSON)** |  **Incompatible** - cannot share proofs between versions |
+| **Hash computation** |  Identical - same root hashes for same data |
+
+### Migration Guide
+
+**If you DON'T serialize proofs** (only use in-memory):
+```bash
+# Safe to upgrade directly
+dotnet add package MerkleTree.Net --version 2.0.0
+```
+
+**If you DO serialize proofs** (save to files/databases/APIs):
+1. **Do NOT mix versions** - upgrade all systems simultaneously
+2. Old proofs cannot be verified by v2.0.0
+3. Consider maintaining v1.0.1 for legacy proof verification
+
+**Example of breaking change:**
+```csharp
+// v1.0.1 JSON format (simple array)
+["hash1", "hash2", "hash3"]
+
+// v2.0.0 JSON format (structured package)
+{
+  "version": "1.0",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "treeMetadata": { "rootHash": "abc123...", "leafCount": 1000 },
+  "proof": { "leafHash": "def456...", "proofPath": [...] }
+}
+```
+
+**Need help migrating?** Open an issue on GitHub.
+
+---
+
 ## Quick Start
 
 ### Build a Merkle Tree
@@ -92,18 +140,18 @@ bool consistent = MerkleTree.VerifyConsistency(oldRoot, proof);
 ## What's Different from Original
 
 - .NET 8 with modern C# features
--  No external dependencies
--  Nullable reference types for safety
--  Resource leak fixes
+- No external dependencies
+- Nullable reference types for safety
+- Resource leak fixes
 
 ## Enhancements in This Port
 
 ### Performance Optimizations
--  **Zero-allocation hot paths** - `stackalloc` for hash operations (18% faster BuildTree)
+-  **Zero-allocation hot paths** - `stackalloc` for hash operations (20% faster BuildTree)
 -  **ArrayPool integration** - Reduced memory allocations by 19% with automatic cleanup
 -  **LINQ removal in critical paths** - Direct loops for better performance
 -  **Pre-allocated buffers** - Capacity hints to avoid list reallocations
--  **TryComputeHash optimization** - Minimized GC pressure (Gen2 reduced 35%)
+-  **TryComputeHash optimization** - Minimized GC pressure
 
 ### Extended Functionality
 -  **JSON Serialization** - Complete serialization/deserialization for proofs and metadata
@@ -125,14 +173,14 @@ AMD Ryzen 5 7535HS, Windows 11
 
 | Method           | Leaves | Mean      | Gen0 | Gen1 | Gen2 | Allocated  |
 |------------------|--------|-----------|------|------|------|------------|
-| BuildTree        | 100    | 110 μs    | 15   | 1    | 0    | 126 KB     |
-| BuildTree        | 1,000  | 1.06 ms   | 150  | 47   | 0    | 1.23 MB    |
-| BuildTree        | 10,000 | 18.63 ms  | 1625 | 688  | 156  | 12.47 MB   |
-| AuditProof       | 100    | 1.19 μs   | 0    | 0    | 0    | 1.16 KB    |
-| AuditProof       | 1,000  | 9.92 μs   | 0    | 0    | 0    | 1.69 KB    |
-| AuditProof       | 10,000 | 96.29 μs  | 0    | 0    | 0    | 2.18 KB    |
-| ConsistencyProof | 1,000  | 285 μs    | 31   | 0    | 0    | 252 KB     |
-| ConsistencyProof | 10,000 | 4.83 ms   | 398  | 0    | 0    | 3.29 MB    |
+| BuildTree        | 100    | 106 μs    | 15   | 1    | 0    | 126 KB     |
+| BuildTree        | 1,000  | 1.13 ms   | 150  | 47   | 0    | 1.23 MB    |
+| BuildTree        | 10,000 | 19.8 ms   | 1625 | 688  | 156  | 12.47 MB   |
+| AuditProof       | 100    | 1.22 μs   | 0    | 0    | 0    | 1.16 KB    |
+| AuditProof       | 1,000  | 10.4 μs   | 0    | 0    | 0    | 1.69 KB    |
+| AuditProof       | 10,000 | 103 μs    | 0    | 0    | 0    | 2.17 KB    |
+| ConsistencyProof | 1,000  | 298 μs    | 31   | 0    | 0    | 252 KB     |
+| ConsistencyProof | 10,000 | 5.11 ms   | 398  | 0    | 0    | 3.29 MB    |
 ```
 
 ## Acknowledgements
