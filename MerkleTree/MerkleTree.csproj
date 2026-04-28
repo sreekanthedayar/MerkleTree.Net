@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -11,7 +11,7 @@
 
     <!-- NuGet Package Metadata -->
     <PackageId>MerkleTree.Net</PackageId>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <Authors>Marc Clifton, Sreekanth Edayar</Authors>
     <Description>A .NET port of Marc Clifton's MerkleTree library. Provides cryptographic Merkle tree implementation with audit proofs and consistency proofs for blockchain and transparency log applications.</Description>
     <Copyright>Copyright (c) Marc Clifton. .NET port by Sreekanth Edayar</Copyright>
@@ -19,8 +19,8 @@
     <PackageProjectUrl>https://github.com/sreekanthedayar/MerkleTree.Net</PackageProjectUrl>
     <RepositoryUrl>https://github.com/sreekanthedayar/MerkleTree.Net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>merkle-tree blockchain cryptography audit-proof consistency-proof transparency-log dotnet8</PackageTags>
-    <PackageReleaseNotes>v2.0.0: Modern .NET port with C# features, nullable reference types, improved resource management, and comprehensive test coverage. Original implementation by Marc Clifton: https://github.com/cliftonm/MerkleTree</PackageReleaseNotes>
+    <PackageTags>merkle-tree blockchain cryptography audit-proof consistency-proof transparency-log dotnet10</PackageTags>
+    <PackageReleaseNotes>v2.1.0: Modern .NET port with C# features, nullable reference types, improved resource management, and comprehensive test coverage. Original implementation by Marc Clifton: https://github.com/cliftonm/MerkleTree</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     
     <!-- SourceLink -->
@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.203" PrivateAssets="All"/>
   </ItemGroup>
 
 </Project>

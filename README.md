@@ -9,7 +9,7 @@ Cryptographic Merkle tree implementation with audit proofs and consistency proof
 dotnet add package MerkleTree.Net
 ```
 
-## ⚠️ Breaking Changes in v2.0.0
+## ⚠️ Breaking Changes in v2.1.0
 
 **If you're upgrading from v1.0.1, please read carefully:**
 
@@ -20,7 +20,7 @@ dotnet add package MerkleTree.Net
 
 ### Compatibility Matrix
 
-| Aspect | v1.0.1 → v2.0.0 |
+| Aspect | v1.0.1 → v2.1.0 |
 |--------|-----------------|
 | **C# API (source code)** |  Mostly compatible - your code will compile |
 | **Serialized proofs (JSON)** |  **Incompatible** - cannot share proofs between versions |
@@ -31,12 +31,12 @@ dotnet add package MerkleTree.Net
 **If you DON'T serialize proofs** (only use in-memory):
 ```bash
 # Safe to upgrade directly
-dotnet add package MerkleTree.Net --version 2.0.0
+dotnet add package MerkleTree.Net --version 2.1.0
 ```
 
 **If you DO serialize proofs** (save to files/databases/APIs):
 1. **Do NOT mix versions** - upgrade all systems simultaneously
-2. Old proofs cannot be verified by v2.0.0
+2. Old proofs cannot be verified by v2.1.0
 3. Consider maintaining v1.0.1 for legacy proof verification
 
 **Example of breaking change:**
@@ -44,7 +44,7 @@ dotnet add package MerkleTree.Net --version 2.0.0
 // v1.0.1 JSON format (simple array)
 ["hash1", "hash2", "hash3"]
 
-// v2.0.0 JSON format (structured package)
+// v2.1.0 JSON format (structured package)
 {
   "version": "1.0",
   "timestamp": "2025-01-15T10:30:00Z",
@@ -138,7 +138,7 @@ bool consistent = MerkleTree.VerifyConsistency(oldRoot, proof);
 
 ## What's Different from Original
 
-- .NET 8 with modern C# features
+- .NET 10 with modern C# features
 - No external dependencies
 - Nullable reference types for safety
 - Resource leak fixes
