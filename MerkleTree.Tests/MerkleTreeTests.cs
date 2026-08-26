@@ -21,6 +21,30 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void CustomHashAlgorithm_SHA512_IsSupported()
+        {
+            using var sha512 = SHA512.Create();
+            var tree = new Clifton.Blockchain.MerkleTree(sha512);
+
+            tree.AddLeaf(Encoding.UTF8.GetBytes("sha512-leaf"), autoHash: true);
+            var root = tree.BuildTree();
+
+            Assert.Equal(64, root.Value.Length);
+        }
+
+        [Fact]
+        public void VerifyHash_UsesTheConfiguredCustomAlgorithm()
+        {
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes("test-key"));
+            var tree = new Clifton.Blockchain.MerkleTree(hmac);
+            tree.AddLeaf(Encoding.UTF8.GetBytes("left"), autoHash: true);
+            tree.AddLeaf(Encoding.UTF8.GetBytes("right"), autoHash: true);
+            tree.BuildTree();
+
+            Assert.True(tree.RootNode.VerifyHash());
+        }
+
+        [Fact]
         public void AddTree_DoesNotReparentSourceLeaves()
         {
             var source = new Clifton.Blockchain.MerkleTree();

@@ -6,7 +6,7 @@
     public static class Constants
     {
         /// <summary>
-        /// The expected length of a hash in bytes.
+        /// The length of a default SHA-256 hash in bytes.
         /// </summary>
         public const int HASH_LENGTH = 32;
     }

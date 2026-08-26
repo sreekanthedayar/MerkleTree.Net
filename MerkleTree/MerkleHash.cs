@@ -12,7 +12,7 @@ namespace Clifton.Blockchain
   
         protected MerkleHash()  
         {
-            Value = new byte[Constants.HASH_LENGTH];
+            Value = Array.Empty<byte>();
         }  
   
         public static MerkleHash Create(byte[] buffer)  
@@ -58,9 +58,9 @@ namespace Clifton.Blockchain
         /// </summary>
         public static MerkleHash FromDigest(ReadOnlySpan<byte> digest)
         {
-            if (digest.Length != Constants.HASH_LENGTH)
+            if (digest.Length == 0)
             {
-                throw new MerkleException($"Digest must be {Constants.HASH_LENGTH} bytes.");
+                throw new MerkleException("Digest cannot be empty.");
             }
 
             MerkleHash hash = new MerkleHash();
@@ -79,19 +79,13 @@ namespace Clifton.Blockchain
         }
   
         public static MerkleHash Create(MerkleHash left, MerkleHash right)  
-        {  
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
-            left.Value.CopyTo(buffer);
-            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
-            return Create(buffer);
+        {
+            return CreateCombined(left, right, null);
         }
 
         public static MerkleHash Create(MerkleHash left, MerkleHash right, HashAlgorithm hashAlgorithm)
         {
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
-            left.Value.CopyTo(buffer);
-            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
-            return Create(buffer, hashAlgorithm);
+            return CreateCombined(left, right, hashAlgorithm);
         }
   
         public static bool operator ==(MerkleHash h1, MerkleHash h2)  
@@ -217,41 +211,34 @@ namespace Clifton.Blockchain
                 throw new ArgumentNullException(nameof(hashAlgorithm));
             }
 
-            // Try to use TryComputeHash for zero-allocation if available
-            Span<byte> hashOutput = stackalloc byte[Constants.HASH_LENGTH];
-            if (hashAlgorithm.TryComputeHash(buffer, hashOutput, out int bytesWritten))
-            {
-                if (bytesWritten != Constants.HASH_LENGTH)
-                {
-                    throw new MerkleException($"Hash algorithm produced unexpected output length: {bytesWritten}");
-                }
-                SetHash(hashOutput.ToArray());
-            }
-            else
-            {
-                // Fallback to ArrayPool for algorithms that don't support TryComputeHash
-                byte[]? rentedArray = null;
-                try
-                {
-                    rentedArray = ArrayPool<byte>.Shared.Rent(buffer.Length);
-                    buffer.CopyTo(rentedArray);
-                    SetHash(hashAlgorithm.ComputeHash(rentedArray, 0, buffer.Length));
-                }
-                finally
-                {
-                    if (rentedArray != null)
-                    {
-                        ArrayPool<byte>.Shared.Return(rentedArray, clearArray: true);
-                    }
-                }
-            }
+            SetHash(hashAlgorithm.ComputeHash(buffer.ToArray()));
         }
 
         public void SetHash(byte[] hash)  
         {  
-            MerkleTree.Contract(() => hash.Length == Constants.HASH_LENGTH, "Unexpected hash length.");  
+            MerkleTree.Contract(() => hash is not null && hash.Length > 0, "Hash cannot be empty.");
             Value = hash;  
-        }  
+        }
+
+        private static MerkleHash CreateCombined(MerkleHash left, MerkleHash right, HashAlgorithm? hashAlgorithm)
+        {
+            int leftLength = left.Value.Length;
+            int rightLength = right.Value.Length;
+            int combinedLength = leftLength + rightLength;
+
+            if (combinedLength <= 256)
+            {
+                Span<byte> buffer = stackalloc byte[combinedLength];
+                left.Value.CopyTo(buffer);
+                right.Value.CopyTo(buffer.Slice(leftLength));
+                return hashAlgorithm == null ? Create(buffer) : Create(buffer, hashAlgorithm);
+            }
+
+            byte[] combined = new byte[combinedLength];
+            left.Value.CopyTo(combined, 0);
+            right.Value.CopyTo(combined, leftLength);
+            return hashAlgorithm == null ? Create(combined) : Create(combined, hashAlgorithm);
+        }
   
         public bool Equals(byte[] hash)  
         {  

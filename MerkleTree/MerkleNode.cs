@@ -180,7 +180,9 @@ namespace Clifton.Blockchain
   
             if (LeftNode != null && RightNode != null)  
             {  
-                MerkleHash leftRightHash = MerkleHash.Create(LeftNode.Hash, RightNode.Hash);  
+                MerkleHash leftRightHash = _hashAlgorithm == null
+                    ? MerkleHash.Create(LeftNode.Hash, RightNode.Hash)
+                    : MerkleHash.Create(LeftNode.Hash, RightNode.Hash, _hashAlgorithm);
                 return Hash.Equals(leftRightHash);  
             }  
   
@@ -232,15 +234,7 @@ namespace Clifton.Blockchain
         /// </summary>
         private MerkleHash ComputeParentHash(MerkleNode left, MerkleNode right)
         {
-            // Allocate a 64-byte buffer on the stack. This avoids heap allocation.
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
-
-            // Copy the left and right hash values directly into the stack buffer.
-            left.Hash.Value.CopyTo(buffer);
-            right.Hash.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
-
-            // Create the new hash from the stack-allocated buffer.
-            return MerkleHash.Create(buffer);
+            return MerkleHash.Create(left.Hash, right.Hash);
         }
 
         /// <summary>
@@ -248,11 +242,7 @@ namespace Clifton.Blockchain
         /// </summary>
         private MerkleHash ComputeParentHash(MerkleNode left, MerkleNode right, HashAlgorithm hashAlgorithm)
         {
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
-            left.Hash.Value.CopyTo(buffer);
-            right.Hash.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
-
-            return MerkleHash.Create(buffer, hashAlgorithm);
+            return MerkleHash.Create(left.Hash, right.Hash, hashAlgorithm);
         }
     }  
 }

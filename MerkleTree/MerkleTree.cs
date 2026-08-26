@@ -101,9 +101,10 @@ namespace Clifton.Blockchain
             else
             {
                 // Assume data is already a hash
-                if (data.Length != Constants.HASH_LENGTH)
+                int expectedHashLength = HashAlgorithm.HashSize / 8;
+                if (expectedHashLength <= 0 || data.Length != expectedHashLength)
                 {
-                    throw new MerkleException($"Data must be {Constants.HASH_LENGTH} bytes when autoHash is false");
+                    throw new MerkleException($"Data must be {expectedHashLength} bytes when autoHash is false");
                 }
                 hash = MerkleHash.FromDigest(data);
             }
@@ -246,16 +247,14 @@ namespace Clifton.Blockchain
             }
 
             MerkleHash testHash = leafHash;
-            // Allocate the buffer once outside the loop.
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
 
             // Use for loop instead of foreach for better performance
             for (int i = 0; i < auditTrail.Count; i++)
             {
                 var auditHash = auditTrail[i];
                 testHash = auditHash.Direction == MerkleProofHash.Branch.Left ?
-                    MerkleHash.Create(ComputeCombinedHash(testHash, auditHash.Hash, buffer)) :
-                    MerkleHash.Create(ComputeCombinedHash(auditHash.Hash, testHash, buffer));
+                    MerkleHash.Create(testHash, auditHash.Hash) :
+                    MerkleHash.Create(auditHash.Hash, testHash);
             }
 
             return rootHash == testHash;
@@ -278,16 +277,14 @@ namespace Clifton.Blockchain
             }
 
             MerkleHash testHash = leafHash;
-            // Allocate the buffer once outside the loop.
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
 
             // Use for loop instead of foreach
             for (int i = 0; i < auditTrail.Count; i++)
             {
                 var auditHash = auditTrail[i];
                 testHash = auditHash.Direction == MerkleProofHash.Branch.Left ?
-                    MerkleHash.Create(ComputeCombinedHash(testHash, auditHash.Hash, buffer), HashAlgorithm) :
-                    MerkleHash.Create(ComputeCombinedHash(auditHash.Hash, testHash, buffer), HashAlgorithm);
+                    MerkleHash.Create(testHash, auditHash.Hash, HashAlgorithm) :
+                    MerkleHash.Create(auditHash.Hash, testHash, HashAlgorithm);
             }
 
             return rootHash == testHash;
@@ -305,8 +302,6 @@ namespace Clifton.Blockchain
 
             var auditPairs = new List<Tuple<MerkleHash, MerkleHash>>(auditTrail.Count);
             MerkleHash testHash = leafHash;
-            // Allocate the buffer once outside the loop.
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
 
             // Use for loop instead of foreach
             for (int i = 0; i < auditTrail.Count; i++)
@@ -316,12 +311,12 @@ namespace Clifton.Blockchain
                 {
                     case MerkleProofHash.Branch.Left:
                         auditPairs.Add(new Tuple<MerkleHash, MerkleHash>(testHash, auditHash.Hash));
-                        testHash = MerkleHash.Create(ComputeCombinedHash(testHash, auditHash.Hash, buffer));
+                        testHash = MerkleHash.Create(testHash, auditHash.Hash);
                         break;
 
                     case MerkleProofHash.Branch.Right:
                         auditPairs.Add(new Tuple<MerkleHash, MerkleHash>(auditHash.Hash, testHash));
-                        testHash = MerkleHash.Create(ComputeCombinedHash(auditHash.Hash, testHash, buffer));
+                        testHash = MerkleHash.Create(auditHash.Hash, testHash);
                         break;
                 }
             }
@@ -550,10 +545,7 @@ namespace Clifton.Blockchain
         /// </summary>
         public static MerkleHash ComputeHashStatic(MerkleHash left, MerkleHash right)
         {
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
-            left.Value.CopyTo(buffer);
-            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
-            return MerkleHash.Create(buffer);
+            return MerkleHash.Create(left, right);
         }
 
         /// <summary>
@@ -561,10 +553,7 @@ namespace Clifton.Blockchain
         /// </summary>
         public MerkleHash ComputeHashWithAlgorithm(MerkleHash left, MerkleHash right)
         {
-            Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
-            left.Value.CopyTo(buffer);
-            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
-            return MerkleHash.Create(buffer, HashAlgorithm);
+            return MerkleHash.Create(left, right, HashAlgorithm);
         }
 
         protected void BuildAuditTrail(List<MerkleProofHash> auditTrail, MerkleNode? parent, MerkleNode child)
@@ -582,13 +571,6 @@ namespace Clifton.Blockchain
 
                 BuildAuditTrail(auditTrail, child.Parent!.Parent, child.Parent);
             }
-        }
-
-        private static ReadOnlySpan<byte> ComputeCombinedHash(MerkleHash left, MerkleHash right, Span<byte> buffer)
-        {
-            left.Value.CopyTo(buffer);
-            right.Value.CopyTo(buffer.Slice(Constants.HASH_LENGTH));
-            return buffer;
         }
 
         protected MerkleNode? FindLeaf(MerkleHash leafHash)

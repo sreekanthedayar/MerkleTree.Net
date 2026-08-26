@@ -71,19 +71,16 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
-        public void CreateNode_WithNon32ByteHashAlgorithm_ThrowsException()
+        public void CreateNode_WithSHA512HashAlgorithm_VerifiesUsingTheConfiguredAlgorithm()
         {
-            // Arrange
             using var sha512 = System.Security.Cryptography.SHA512.Create();
-            var leftNode = new MerkleNode(MerkleHash.Create("left")); // Uses default SHA256
-            var rightNode = new MerkleNode(MerkleHash.Create("right"));
+            var leftNode = new MerkleNode(MerkleHash.Create("left", sha512));
+            var rightNode = new MerkleNode(MerkleHash.Create("right", sha512));
 
-            // Act
-            // MerkleNode constructor calls MerkleHash.Create, which enforces a 32-byte hash length
-            var ex = Assert.Throws<MerkleException>(() => new MerkleNode(leftNode, rightNode, sha512));
+            var parent = new MerkleNode(leftNode, rightNode, sha512);
 
-            // Assert
-            Assert.Contains("Unexpected hash length", ex.Message);
+            Assert.Equal(64, parent.Hash.Value.Length);
+            Assert.True(parent.VerifyHash());
         }
     }
 }

@@ -85,16 +85,15 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
-        public void Create_WithNon32ByteHashAlgorithm_ThrowsException()
+        public void Create_WithSHA512HashAlgorithm_UsesTheAlgorithmDigestLength()
         {
             // Arrange
             byte[] input = System.Text.Encoding.UTF8.GetBytes("custom algorithm test");
             using var sha512 = System.Security.Cryptography.SHA512.Create(); // Produces a 64-byte hash
 
-            // Act & Assert
-            // MerkleHash.Create calls SetHash, which enforces a 32-byte hash length via Constants.HASH_LENGTH
-            var ex = Assert.Throws<MerkleException>(() => MerkleHash.Create(input, sha512));
-            Assert.Contains("Unexpected hash length", ex.Message);
+            var hash = MerkleHash.Create(input, sha512);
+
+            Assert.Equal(64, hash.Value.Length);
         }
     }
 }

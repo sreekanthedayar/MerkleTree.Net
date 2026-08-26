@@ -103,13 +103,12 @@ namespace MerkleTree.Tests
         [Fact]
         public void SetHash_InvalidLength_ThrowsException()
         {
-            // MerkleHash.Create() always produces valid 32-byte hash
-            // Test SetHash directly with invalid length
+            // Empty digests are invalid.
             var merkleHash = MerkleHash.Create("test");
-            var invalidHash = new byte[16]; // Wrong length
+            var invalidHash = Array.Empty<byte>();
             
             var ex = Assert.Throws<MerkleException>(() => merkleHash.SetHash(invalidHash));
-            Assert.Contains("Unexpected hash length", ex.Message);
+            Assert.Contains("Hash cannot be empty", ex.Message);
         }
 
         [Fact]
