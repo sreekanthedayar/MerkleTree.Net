@@ -24,7 +24,7 @@ dotnet add package MerkleTree.Net
 |--------|-----------------|
 | **C# API (source code)** |  Mostly compatible - your code will compile |
 | **Serialized proofs (JSON)** |  **Incompatible** - cannot share proofs between versions |
-| **Hash computation** |  Identical - same root hashes for same data |
+| **Hash computation** |  Changed - leaf and node hashes use RFC 6962 domain separation |
 
 ### Migration Guide
 
@@ -117,7 +117,7 @@ bool consistent = MerkleTree.VerifyConsistency(
 - **Blockchain**: Verify transactions without downloading entire chain
 - **Git-like Systems**: Content verification and history tracking  
 - **Audit Logs**: Tamper-proof logging with verifiable history
-- **Certificate Transparency**: Verify certificate issuance (RFC 6962)
+- **Certificate Transparency-style trees**: Use RFC 6962 domain-separated leaf and node hashing
 
 ## API Overview
 
@@ -130,9 +130,10 @@ bool consistent = MerkleTree.VerifyConsistency(
 - `VerifyConsistency(MerkleHash, MerkleHash, int, int, IReadOnlyList<MerkleProofHash>)` - Verify both tree roots and sizes
 
 **MerkleHash**  
-- `Create(string)` - Hash from string
-- `Create(byte[])` - Hash from bytes
-- `Create(ReadOnlySpan<byte>)` - Zero-allocation hash from span
+- `Create(string)` - Hash data as `SHA256(0x00 || UTF8(data))`
+- `Create(byte[])` - Hash data as `SHA256(0x00 || data)`
+- `Create(ReadOnlySpan<byte>)` - Domain-separated hash from span
+- `Create(MerkleHash, MerkleHash)` - Hash nodes as `SHA256(0x01 || left || right)`
 - `FromDigest(ReadOnlySpan<byte>)` - Create from an existing digest without hashing again
 - `ToHex()` - Convert to hexadecimal string
 - `FromHex(string)` - Parse from hexadecimal string

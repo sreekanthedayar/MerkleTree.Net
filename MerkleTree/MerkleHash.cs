@@ -8,6 +8,9 @@ namespace Clifton.Blockchain
 {  
     public class MerkleHash  
     {  
+        private static readonly byte[] LeafDomainPrefix = { 0x00 };
+        private static readonly byte[] NodeDomainPrefix = { 0x01 };
+
         public byte[] Value { get; protected set; }
   
         protected MerkleHash()  
@@ -155,7 +158,7 @@ namespace Clifton.Blockchain
         {  
             using (SHA256 sha256 = SHA256.Create())  
             {  
-                SetHash(sha256.ComputeHash(buffer));  
+                ComputeSha256HashWithPrefix(buffer, LeafDomainPrefix[0], sha256);
             }  
         }
 
@@ -163,9 +166,28 @@ namespace Clifton.Blockchain
         {
             using (SHA256 sha256 = SHA256.Create())
             {
-                // Use TryComputeHash for zero-allocation path when available
+                ComputeSha256HashWithPrefix(buffer, LeafDomainPrefix[0], sha256);
+            }
+        }
+
+        private void ComputeSha256HashWithPrefix(
+            ReadOnlySpan<byte> buffer,
+            byte prefix,
+            SHA256 sha256)
+        {
+            int prefixedLength = buffer.Length + 1;
+            byte[]? rentedBuffer = null;
+            Span<byte> prefixedBuffer = prefixedLength <= 256
+                ? stackalloc byte[prefixedLength]
+                : (rentedBuffer = ArrayPool<byte>.Shared.Rent(prefixedLength));
+
+            try
+            {
+                prefixedBuffer[0] = prefix;
+                buffer.CopyTo(prefixedBuffer.Slice(1));
+
                 Span<byte> hashOutput = stackalloc byte[Constants.HASH_LENGTH];
-                if (sha256.TryComputeHash(buffer, hashOutput, out int bytesWritten))
+                if (sha256.TryComputeHash(prefixedBuffer.Slice(0, prefixedLength), hashOutput, out int bytesWritten))
                 {
                     if (bytesWritten != Constants.HASH_LENGTH)
                     {
@@ -175,21 +197,14 @@ namespace Clifton.Blockchain
                 }
                 else
                 {
-                    // Fallback to ArrayPool if TryComputeHash fails (shouldn't happen with SHA256)
-                    byte[]? rentedArray = null;
-                    try
-                    {
-                        rentedArray = ArrayPool<byte>.Shared.Rent(buffer.Length);
-                        buffer.CopyTo(rentedArray);
-                        SetHash(sha256.ComputeHash(rentedArray, 0, buffer.Length));
-                    }
-                    finally
-                    {
-                        if (rentedArray != null)
-                        {
-                            ArrayPool<byte>.Shared.Return(rentedArray, clearArray: true);
-                        }
-                    }
+                    SetHash(sha256.ComputeHash(prefixedBuffer.Slice(0, prefixedLength).ToArray()));
+                }
+            }
+            finally
+            {
+                if (rentedBuffer != null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedBuffer, clearArray: true);
                 }
             }
         }
@@ -201,7 +216,7 @@ namespace Clifton.Blockchain
                 throw new ArgumentNullException(nameof(hashAlgorithm));
             }
 
-            SetHash(hashAlgorithm.ComputeHash(buffer));
+            SetHash(ComputeHashWithPrefix(hashAlgorithm, LeafDomainPrefix, buffer));
         }
   
         public void ComputeHash(ReadOnlySpan<byte> buffer, HashAlgorithm hashAlgorithm)
@@ -211,7 +226,7 @@ namespace Clifton.Blockchain
                 throw new ArgumentNullException(nameof(hashAlgorithm));
             }
 
-            SetHash(hashAlgorithm.ComputeHash(buffer.ToArray()));
+            SetHash(ComputeHashWithPrefix(hashAlgorithm, LeafDomainPrefix, buffer.ToArray()));
         }
 
         public void SetHash(byte[] hash)  
@@ -222,22 +237,40 @@ namespace Clifton.Blockchain
 
         private static MerkleHash CreateCombined(MerkleHash left, MerkleHash right, HashAlgorithm? hashAlgorithm)
         {
-            int leftLength = left.Value.Length;
-            int rightLength = right.Value.Length;
-            int combinedLength = leftLength + rightLength;
-
-            if (combinedLength <= 256)
+            MerkleHash hash = new MerkleHash();
+            if (hashAlgorithm == null)
             {
-                Span<byte> buffer = stackalloc byte[combinedLength];
-                left.Value.CopyTo(buffer);
-                right.Value.CopyTo(buffer.Slice(leftLength));
-                return hashAlgorithm == null ? Create(buffer) : Create(buffer, hashAlgorithm);
+                using SHA256 sha256 = SHA256.Create();
+                hash.SetHash(ComputeHashWithPrefix(sha256, NodeDomainPrefix, left.Value, right.Value));
+            }
+            else
+            {
+                hash.SetHash(ComputeHashWithPrefix(hashAlgorithm, NodeDomainPrefix, left.Value, right.Value));
             }
 
-            byte[] combined = new byte[combinedLength];
-            left.Value.CopyTo(combined, 0);
-            right.Value.CopyTo(combined, leftLength);
-            return hashAlgorithm == null ? Create(combined) : Create(combined, hashAlgorithm);
+            return hash;
+        }
+
+        private static byte[] ComputeHashWithPrefix(
+            HashAlgorithm hashAlgorithm,
+            byte[] prefix,
+            byte[] first,
+            byte[]? second = null)
+        {
+            hashAlgorithm.Initialize();
+            hashAlgorithm.TransformBlock(prefix, 0, prefix.Length, prefix, 0);
+            hashAlgorithm.TransformBlock(first, 0, first.Length, first, 0);
+
+            if (second == null)
+            {
+                hashAlgorithm.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            }
+            else
+            {
+                hashAlgorithm.TransformFinalBlock(second, 0, second.Length);
+            }
+
+            return hashAlgorithm.Hash ?? throw new MerkleException("Hash algorithm did not produce a hash.");
         }
   
         public bool Equals(byte[] hash)  
