@@ -103,7 +103,12 @@ newTree.BuildTree();
 
 // Prove new tree contains old tree
 var proof = newTree.ConsistencyProof(4);
-bool consistent = MerkleTree.VerifyConsistency(oldRoot, proof);
+bool consistent = MerkleTree.VerifyConsistency(
+    oldRoot,
+    newTree.RootNode.Hash,
+    4,
+    8,
+    proof);
 // consistent == true
 ```
 
@@ -121,7 +126,8 @@ bool consistent = MerkleTree.VerifyConsistency(oldRoot, proof);
 - `AddLeaf(byte[], bool autoHash)` - Add raw data with optional auto-hashing
 - `BuildTree()` - Build tree and get root hash
 - `AuditProof(MerkleHash)` - Prove a leaf exists
-- `ConsistencyProof(int)` - Prove tree growth
+- `ConsistencyProof(int)` - Generate a size-aware proof of append-only growth
+- `VerifyConsistency(MerkleHash, MerkleHash, int, int, IReadOnlyList<MerkleProofHash>)` - Verify both tree roots and sizes
 
 **MerkleHash**  
 - `Create(string)` - Hash from string

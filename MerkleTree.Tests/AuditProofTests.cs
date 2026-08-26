@@ -8,6 +8,32 @@ namespace MerkleTree.Tests
     public class AuditProofTests
     {
         [Fact]
+        public void AuditProof_SingleLeaf_ReturnsEmptyPath()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            var leaf = MerkleHash.Create("only-leaf");
+            tree.AppendLeaf(leaf);
+            tree.BuildTree();
+
+            var proof = tree.AuditProof(leaf);
+
+            Assert.Empty(proof);
+        }
+
+        [Fact]
+        public void VerifyAudit_SingleLeafAcceptsEmptyPath()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            var leaf = MerkleHash.Create("only-leaf");
+            tree.AppendLeaf(leaf);
+            var root = tree.BuildTree();
+            var proof = new List<MerkleProofHash>();
+
+            Assert.True(Clifton.Blockchain.MerkleTree.VerifyAudit(root, leaf, proof));
+            Assert.True(tree.VerifyAuditWithAlgorithm(root, leaf, proof));
+        }
+
+        [Fact]
         public void AuditProof_ValidLeaf_ReturnsCorrectProof()
         {
             var tree = new Clifton.Blockchain.MerkleTree();

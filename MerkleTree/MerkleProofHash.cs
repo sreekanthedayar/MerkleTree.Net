@@ -8,7 +8,8 @@ namespace Clifton.Blockchain
         {
             Left,
             Right,
-            OldRoot,    // used for linear list of hashes to compute the old root in a consistency proof.
+            OldRoot,       // legacy consistency-proof marker.
+            Consistency,   // node in a size-aware consistency proof.
         }
 
         public MerkleHash Hash { get; protected set; } = null!;

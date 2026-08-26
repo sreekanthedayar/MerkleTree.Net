@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
 using Xunit;
 using Clifton.Blockchain;
 
@@ -8,30 +6,22 @@ namespace MerkleTree.Tests
 {
     public class ConsistencyProofTests
     {
-        private bool VerifyConsistencyManually(MerkleHash oldRootHash, List<MerkleProofHash> proof, HashAlgorithm hashAlgorithm)
+        [Fact]
+        public void VerifyConsistency_OneElementOldRootProof_DoesNotProveAnExtension()
         {
-            if (proof == null || proof.Count == 0)
+            var oldRoot = MerkleHash.Create("old-root");
+            var newRoot = MerkleHash.Create("new-root");
+            var proof = new List<MerkleProofHash>
             {
-                return false; // Or handle as per specification, maybe true if oldRoot is also empty/null
-            }
+                new MerkleProofHash(oldRoot, MerkleProofHash.Branch.Consistency)
+            };
 
-            MerkleHash computedHash;
-            // If there's only one hash in the proof, it should be the old root itself.
-            if (proof.Count == 1)
-            {
-                return proof[0].Hash == oldRootHash;
-            }
-            
-            int hidx = proof.Count - 1;
-            computedHash = MerkleHash.Create(proof[hidx - 1].Hash, proof[hidx].Hash, hashAlgorithm);
-            hidx -= 2;
-            while (hidx >= 0)
-            {
-                computedHash = MerkleHash.Create(proof[hidx].Hash, computedHash, hashAlgorithm);
-                --hidx;
-            }
-
-            return computedHash == oldRootHash;
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                oldRoot,
+                newRoot,
+                4,
+                8,
+                proof));
         }
 
         [Fact]
@@ -52,7 +42,12 @@ namespace MerkleTree.Tests
                 {
                     var oldRootHash = oldRoots[n];
                     var proof = tree.ConsistencyProof(n + 2);
-                    bool isValid = VerifyConsistencyManually(oldRootHash, proof, tree.HashAlgorithm);
+                    bool isValid = Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                        oldRootHash,
+                        tree.RootNode.Hash,
+                        n + 2,
+                        i + 1,
+                        proof);
                     Assert.True(isValid, $"Consistency failed for new tree size {i + 1} against old tree size {n + 2}. Old root: {oldRootHash}");
                 }
 
@@ -79,7 +74,12 @@ namespace MerkleTree.Tests
             newTree.BuildTree();
 
             var proof = newTree.ConsistencyProof(oldSize);
-            bool isValid = VerifyConsistencyManually(oldRoot, proof, newTree.HashAlgorithm);
+            bool isValid = Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                oldRoot,
+                newTree.RootNode.Hash,
+                oldSize,
+                newSize,
+                proof);
 
             Assert.True(isValid);
         }
@@ -100,9 +100,83 @@ namespace MerkleTree.Tests
             tree2.BuildTree();
 
             var proof = tree2.ConsistencyProof(4);
-            bool isValid = VerifyConsistencyManually(oldRoot, proof, tree2.HashAlgorithm);
+            bool isValid = Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                oldRoot,
+                tree2.RootNode.Hash,
+                4,
+                8,
+                proof);
 
             Assert.True(isValid);
+        }
+
+        [Fact]
+        public void VerifyConsistency_TamperedNewRoot_IsRejected()
+        {
+            var oldTree = new Clifton.Blockchain.MerkleTree();
+            for (int i = 0; i < 4; i++)
+                oldTree.AppendLeaf(MerkleHash.Create($"leaf{i}"));
+            var oldRoot = oldTree.BuildTree();
+
+            var newTree = new Clifton.Blockchain.MerkleTree();
+            for (int i = 0; i < 8; i++)
+                newTree.AppendLeaf(MerkleHash.Create($"leaf{i}"));
+            var newRoot = newTree.BuildTree();
+            var proof = newTree.ConsistencyProof(4);
+
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                oldRoot,
+                MerkleHash.Create("tampered-new-root"),
+                4,
+                8,
+                proof));
+            Assert.True(Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                oldRoot,
+                newRoot,
+                4,
+                8,
+                proof));
+        }
+
+        [Fact]
+        public void VerifyConsistency_InvalidSizesAndIncompleteProofs_AreRejected()
+        {
+            var oldTree = new Clifton.Blockchain.MerkleTree();
+            for (int i = 0; i < 4; i++)
+                oldTree.AppendLeaf(MerkleHash.Create($"leaf{i}"));
+            var oldRoot = oldTree.BuildTree();
+
+            var newTree = new Clifton.Blockchain.MerkleTree();
+            for (int i = 0; i < 8; i++)
+                newTree.AppendLeaf(MerkleHash.Create($"leaf{i}"));
+            var newRoot = newTree.BuildTree();
+            var proof = newTree.ConsistencyProof(4);
+
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyConsistency(oldRoot, newRoot, 0, 8, proof));
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyConsistency(oldRoot, newRoot, 8, 4, proof));
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyConsistency(oldRoot, newRoot, 4, 8, new List<MerkleProofHash>()));
+        }
+
+        [Fact]
+        public void VerifyConsistency_SameTreeSizeRequiresMatchingRootsAndNoProof()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            tree.AppendLeaf(MerkleHash.Create("leaf0"));
+            tree.AppendLeaf(MerkleHash.Create("leaf1"));
+            var root = tree.BuildTree();
+
+            Assert.True(Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                root,
+                root,
+                2,
+                2,
+                new List<MerkleProofHash>()));
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                root,
+                MerkleHash.Create("different-root"),
+                2,
+                2,
+                new List<MerkleProofHash>()));
         }
     }
 }

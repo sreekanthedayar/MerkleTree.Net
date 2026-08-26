@@ -185,9 +185,8 @@ namespace Clifton.Blockchain
 
             var leafNode = FindLeaf(leafHash);
 
-            if (leafNode != null)
+            if (leafNode?.Parent != null)
             {
-                Contract(() => leafNode.Parent != null, "Expected leaf to have a parent.");
                 var parent = leafNode.Parent;
                 BuildAuditTrail(auditTrail, parent, leafNode);
             }
@@ -202,63 +201,16 @@ namespace Clifton.Blockchain
         /// <param name="m">The number of leaves in the older version of the tree.</param>
         public List<MerkleProofHash> ConsistencyProof(int m)
         {
-            List<MerkleProofHash> hashNodes = new List<MerkleProofHash>();
-            int idx = (int)Math.Log(m, 2);
+            Contract(() => RootNode != null, "Build the tree before requesting a consistency proof.");
+            Contract(() => m > 0 && m <= leaves.Count, "The old tree size must be between 1 and the current tree size.");
 
-            MerkleNode node = leaves[0];
-
-            while (idx > 0)
+            var proof = new List<MerkleProofHash>();
+            if (m < leaves.Count)
             {
-                if (node.Parent == null)
-                {
-                    throw new MerkleException("Invalid consistency proof request. The tree structure is smaller than the proof requires.");
-                }
-                node = node.Parent;
-                --idx;
+                BuildConsistencyProof(RootNode, leaves.Count, m, true, proof);
             }
 
-            int k = node.Leaves().Count();
-            hashNodes.Add(new MerkleProofHash(node.Hash, MerkleProofHash.Branch.OldRoot));
-
-            if (m == k)
-            {
-                // Continue with Rule 3 -- the remainder is the audit proof
-            }
-            else
-            {
-                if (node.Parent == null) throw new InvalidOperationException("Node parent is null");
-                MerkleNode? sn = node.Parent.RightNode;
-                bool traverseTree = true;
-
-                while (traverseTree)
-                {
-                    Contract(() => sn != null, "Sibling node must exist because m != k");
-                    int sncount = sn!.Leaves().Count();
-
-                    if (m - k == sncount)
-                    {
-                        hashNodes.Add(new MerkleProofHash(sn.Hash, MerkleProofHash.Branch.OldRoot));
-                        break;
-                    }
-
-                    if (m - k > sncount)
-                    {
-                        hashNodes.Add(new MerkleProofHash(sn.Hash, MerkleProofHash.Branch.OldRoot));
-                        if (sn.Parent == null)
-                        {
-                            throw new MerkleException("Invalid tree structure encountered during consistency proof.");
-                        }
-                        sn = sn.Parent.RightNode;
-                        k += sncount;
-                    }
-                    else
-                    {
-                        sn = sn.LeftNode;
-                    }
-                }
-            }
-
-            return hashNodes;
+            return proof;
         }
 
         /// <summary>
@@ -281,7 +233,16 @@ namespace Clifton.Blockchain
         /// </summary>
         public static bool VerifyAudit(MerkleHash rootHash, MerkleHash leafHash, List<MerkleProofHash> auditTrail)
         {
-            Contract(() => auditTrail.Count > 0, "Audit trail cannot be empty.");
+            if (rootHash is null || leafHash is null || auditTrail is null)
+            {
+                return false;
+            }
+
+            if (auditTrail.Count == 0)
+            {
+                return rootHash == leafHash;
+            }
+
             MerkleHash testHash = leafHash;
             // Allocate the buffer once outside the loop.
             Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
@@ -304,7 +265,16 @@ namespace Clifton.Blockchain
         /// </summary>
         public bool VerifyAuditWithAlgorithm(MerkleHash rootHash, MerkleHash leafHash, List<MerkleProofHash> auditTrail)
         {
-            Contract(() => auditTrail.Count > 0, "Audit trail cannot be empty.");
+            if (rootHash is null || leafHash is null || auditTrail is null)
+            {
+                return false;
+            }
+
+            if (auditTrail.Count == 0)
+            {
+                return rootHash == leafHash;
+            }
+
             MerkleHash testHash = leafHash;
             // Allocate the buffer once outside the loop.
             Span<byte> buffer = stackalloc byte[Constants.HASH_LENGTH * 2];
@@ -326,7 +296,11 @@ namespace Clifton.Blockchain
         /// </summary>
         public static List<Tuple<MerkleHash, MerkleHash>> AuditHashPairs(MerkleHash leafHash, List<MerkleProofHash> auditTrail)
         {
-            Contract(() => auditTrail.Count > 0, "Audit trail cannot be empty.");
+            if (auditTrail is null)
+            {
+                return new List<Tuple<MerkleHash, MerkleHash>>();
+            }
+
             var auditPairs = new List<Tuple<MerkleHash, MerkleHash>>(auditTrail.Count);
             MerkleHash testHash = leafHash;
             // Allocate the buffer once outside the loop.
@@ -354,35 +328,219 @@ namespace Clifton.Blockchain
         }
 
         /// <summary>
-        /// Verifies a consistency proof, confirming that an old root hash is consistent with a newer version of the tree.
+        /// Verifies a size-aware consistency proof against both tree roots.
         /// </summary>
-        /// <param name="oldRootHash">The root hash of the older, smaller tree.</param>
-        /// <param name="proof">The consistency proof generated from the newer, larger tree.</param>
-        public static bool VerifyConsistency(MerkleHash oldRootHash, List<MerkleProofHash> proof)
+        /// <param name="oldRootHash">The root hash of the older tree.</param>
+        /// <param name="newRootHash">The root hash of the newer tree.</param>
+        /// <param name="oldLeafCount">The number of leaves in the older tree.</param>
+        /// <param name="newLeafCount">The number of leaves in the newer tree.</param>
+        /// <param name="proof">The consistency proof generated from the newer tree.</param>
+        public static bool VerifyConsistency(
+            MerkleHash? oldRootHash,
+            MerkleHash? newRootHash,
+            int oldLeafCount,
+            int newLeafCount,
+            IReadOnlyList<MerkleProofHash>? proof)
         {
-            MerkleHash hash, lhash, rhash;
+            return VerifyConsistencyCore(oldRootHash, newRootHash, oldLeafCount, newLeafCount, proof, null);
+        }
 
-            if (proof.Count > 1)
+        /// <summary>
+        /// Verifies a size-aware consistency proof using this tree's hash algorithm.
+        /// </summary>
+        public bool VerifyConsistencyWithAlgorithm(
+            MerkleHash? oldRootHash,
+            MerkleHash? newRootHash,
+            int oldLeafCount,
+            int newLeafCount,
+            IReadOnlyList<MerkleProofHash>? proof)
+        {
+            return VerifyConsistencyCore(oldRootHash, newRootHash, oldLeafCount, newLeafCount, proof, HashAlgorithm);
+        }
+
+        private static void BuildConsistencyProof(
+            MerkleNode node,
+            int nodeLeafCount,
+            int oldLeafCount,
+            bool useKnownOldRoot,
+            List<MerkleProofHash> proof)
+        {
+            if (oldLeafCount == nodeLeafCount)
             {
-                lhash = proof[proof.Count - 2].Hash;
-                int hidx = proof.Count - 1;
-                hash = rhash = ComputeHashStatic(lhash, proof[hidx].Hash);
-                hidx -= 2;
-
-                while (hidx >= 0)
+                if (!useKnownOldRoot)
                 {
-                    lhash = proof[hidx].Hash;
-                    hash = rhash = ComputeHashStatic(lhash, rhash);
-
-                    --hidx;
+                    proof.Add(new MerkleProofHash(node.Hash, MerkleProofHash.Branch.Consistency));
                 }
+
+                return;
+            }
+
+            if (node.RightNode == null)
+            {
+                Contract(() => node.LeftNode != null, "Invalid tree structure for a consistency proof.");
+                BuildConsistencyProof(node.LeftNode!, nodeLeafCount, oldLeafCount, useKnownOldRoot, proof);
+                return;
+            }
+
+            int leftLeafCount = LargestPowerOfTwoLessThan(nodeLeafCount);
+            Contract(
+                () => node.LeftNode != null,
+                $"Invalid tree structure for a consistency proof (node leaves: {nodeLeafCount}, actual leaves: {node.Leaves().Count()}, old leaves: {oldLeafCount}, is leaf: {node.IsLeaf}).");
+
+            if (oldLeafCount <= leftLeafCount)
+            {
+                BuildConsistencyProof(node.LeftNode!, leftLeafCount, oldLeafCount, useKnownOldRoot, proof);
+                proof.Add(new MerkleProofHash(node.RightNode!.Hash, MerkleProofHash.Branch.Consistency));
             }
             else
             {
-                hash = proof[0].Hash;
+                BuildConsistencyProof(
+                    node.RightNode!,
+                    nodeLeafCount - leftLeafCount,
+                    oldLeafCount - leftLeafCount,
+                    false,
+                    proof);
+                proof.Add(new MerkleProofHash(node.LeftNode!.Hash, MerkleProofHash.Branch.Consistency));
+            }
+        }
+
+        private static int LargestPowerOfTwoLessThan(int value)
+        {
+            int target = value - 1;
+            int power = 1;
+            while (power <= target / 2)
+            {
+                power <<= 1;
             }
 
-            return hash == oldRootHash;
+            return power;
+        }
+
+        private static bool VerifyConsistencyCore(
+            MerkleHash? oldRootHash,
+            MerkleHash? newRootHash,
+            int oldLeafCount,
+            int newLeafCount,
+            IReadOnlyList<MerkleProofHash>? proof,
+            HashAlgorithm? hashAlgorithm)
+        {
+            if (oldRootHash is null || newRootHash is null || proof is null ||
+                oldLeafCount <= 0 || newLeafCount <= 0 || oldLeafCount > newLeafCount)
+            {
+                return false;
+            }
+
+            if (oldLeafCount == newLeafCount)
+            {
+                return proof.Count == 0 && oldRootHash == newRootHash;
+            }
+
+            if (proof.Count == 0)
+            {
+                return false;
+            }
+
+            int proofIndex = 0;
+            try
+            {
+                var result = EvaluateConsistencySubproof(
+                    oldLeafCount,
+                    newLeafCount,
+                    true,
+                    oldRootHash,
+                    proof,
+                    ref proofIndex,
+                    hashAlgorithm);
+
+                return proofIndex == proof.Count &&
+                       result.OldRoot == oldRootHash &&
+                       result.NewRoot == newRootHash;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        private static (MerkleHash OldRoot, MerkleHash NewRoot) EvaluateConsistencySubproof(
+            int oldLeafCount,
+            int newLeafCount,
+            bool useKnownOldRoot,
+            MerkleHash knownOldRoot,
+            IReadOnlyList<MerkleProofHash> proof,
+            ref int proofIndex,
+            HashAlgorithm? hashAlgorithm)
+        {
+            if (oldLeafCount == newLeafCount)
+            {
+                if (useKnownOldRoot)
+                {
+                    return (knownOldRoot, knownOldRoot);
+                }
+
+                MerkleHash subtreeHash = TakeConsistencyProofHash(proof, ref proofIndex);
+                return (subtreeHash, subtreeHash);
+            }
+
+            int leftLeafCount = LargestPowerOfTwoLessThan(newLeafCount);
+            if (oldLeafCount <= leftLeafCount)
+            {
+                var leftResult = EvaluateConsistencySubproof(
+                    oldLeafCount,
+                    leftLeafCount,
+                    useKnownOldRoot,
+                    knownOldRoot,
+                    proof,
+                    ref proofIndex,
+                    hashAlgorithm);
+                MerkleHash rightHash = TakeConsistencyProofHash(proof, ref proofIndex);
+
+                return (
+                    leftResult.OldRoot,
+                    CombineConsistencyHashes(leftResult.NewRoot, rightHash, hashAlgorithm));
+            }
+
+            var rightResult = EvaluateConsistencySubproof(
+                oldLeafCount - leftLeafCount,
+                newLeafCount - leftLeafCount,
+                false,
+                knownOldRoot,
+                proof,
+                ref proofIndex,
+                hashAlgorithm);
+            MerkleHash leftHash = TakeConsistencyProofHash(proof, ref proofIndex);
+
+            return (
+                CombineConsistencyHashes(leftHash, rightResult.OldRoot, hashAlgorithm),
+                CombineConsistencyHashes(leftHash, rightResult.NewRoot, hashAlgorithm));
+        }
+
+        private static MerkleHash TakeConsistencyProofHash(
+            IReadOnlyList<MerkleProofHash> proof,
+            ref int proofIndex)
+        {
+            if (proofIndex >= proof.Count)
+            {
+                throw new InvalidOperationException("The consistency proof is incomplete.");
+            }
+
+            MerkleProofHash proofNode = proof[proofIndex++];
+            if (proofNode is null)
+            {
+                throw new InvalidOperationException("The consistency proof contains a null node.");
+            }
+
+            return proofNode.Hash;
+        }
+
+        private static MerkleHash CombineConsistencyHashes(
+            MerkleHash left,
+            MerkleHash right,
+            HashAlgorithm? hashAlgorithm)
+        {
+            return hashAlgorithm == null
+                ? ComputeHashStatic(left, right)
+                : MerkleHash.Create(left, right, hashAlgorithm);
         }
 
         /// <summary>
