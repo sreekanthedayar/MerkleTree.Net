@@ -137,10 +137,12 @@ namespace Clifton.Blockchain
         {
             Contract(() => leaves.Count > 0, "Cannot add to a tree with no leaves.");
 
-            // Use for loop instead of foreach
-            for (int i = 0; i < tree.leaves.Count; i++)
+            // Copy the source hashes into new leaf nodes so rebuilding this tree
+            // cannot overwrite the source tree's parent relationships.
+            int sourceLeafCount = tree.leaves.Count;
+            for (int i = 0; i < sourceLeafCount; i++)
             {
-                AppendLeaf(tree.leaves[i]);
+                AppendLeaf(tree.leaves[i].Hash);
             }
 
             return BuildTree();

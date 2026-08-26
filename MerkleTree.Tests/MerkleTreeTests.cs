@@ -21,6 +21,47 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void AddTree_DoesNotReparentSourceLeaves()
+        {
+            var source = new Clifton.Blockchain.MerkleTree();
+            var sourceLeaf1 = source.AppendLeaf(MerkleHash.Create("source-1"));
+            var sourceLeaf2 = source.AppendLeaf(MerkleHash.Create("source-2"));
+            var sourceRoot = source.BuildTree();
+
+            var destination = new Clifton.Blockchain.MerkleTree();
+            destination.AppendLeaves(new[]
+            {
+                MerkleHash.Create("destination-1"),
+                MerkleHash.Create("destination-2")
+            });
+            destination.BuildTree();
+
+            destination.AddTree(source);
+
+            Assert.Same(source.RootNode, sourceLeaf1.Parent);
+            Assert.Same(source.RootNode, sourceLeaf2.Parent);
+            Assert.Equal(sourceRoot, source.RootNode.Hash);
+        }
+
+        [Fact]
+        public void AddTree_PreservesSourceAuditProofs()
+        {
+            var source = new Clifton.Blockchain.MerkleTree();
+            var sourceLeaf = source.AppendLeaf(MerkleHash.Create("source-leaf"));
+            source.AppendLeaf(MerkleHash.Create("source-sibling"));
+            var sourceRoot = source.BuildTree();
+
+            var destination = new Clifton.Blockchain.MerkleTree();
+            destination.AppendLeaf(MerkleHash.Create("destination-leaf"));
+            destination.BuildTree();
+            destination.AddTree(source);
+
+            var proof = source.AuditProof(sourceLeaf.Hash);
+
+            Assert.True(source.VerifyAuditWithAlgorithm(sourceRoot, sourceLeaf.Hash, proof));
+        }
+
+        [Fact]
         public void BuildTree_WithSingleLeaf_ShouldSetRootCorrectly()
         {
             var tree = new Clifton.Blockchain.MerkleTree();
