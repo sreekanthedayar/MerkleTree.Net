@@ -53,6 +53,21 @@ namespace Clifton.Blockchain
             return hash;
         }
 
+        /// <summary>
+        /// Creates a MerkleHash from an already-computed digest without hashing it again.
+        /// </summary>
+        public static MerkleHash FromDigest(ReadOnlySpan<byte> digest)
+        {
+            if (digest.Length != Constants.HASH_LENGTH)
+            {
+                throw new MerkleException($"Digest must be {Constants.HASH_LENGTH} bytes.");
+            }
+
+            MerkleHash hash = new MerkleHash();
+            hash.SetHash(digest.ToArray());
+            return hash;
+        }
+
         public static MerkleHash Create(string buffer)  
         {  
             return Create(Encoding.UTF8.GetBytes(buffer));  

@@ -105,7 +105,7 @@ namespace Clifton.Blockchain
                 {
                     throw new MerkleException($"Data must be {Constants.HASH_LENGTH} bytes when autoHash is false");
                 }
-                hash = MerkleHash.Create(data);
+                hash = MerkleHash.FromDigest(data);
             }
 
             return AppendLeaf(hash);

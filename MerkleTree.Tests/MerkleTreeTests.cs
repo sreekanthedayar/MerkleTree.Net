@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Text;
 using Xunit;
 using Clifton.Blockchain;
@@ -7,6 +8,18 @@ namespace MerkleTree.Tests
 {
     public class MerkleTreeTests
     {
+        [Fact]
+        public void AddLeaf_WithoutAutoHash_UsesProvidedDigestAsLeaf()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            var digest = SHA256.HashData(Encoding.UTF8.GetBytes("precomputed-leaf"));
+
+            tree.AddLeaf(digest, autoHash: false);
+            var root = tree.BuildTree();
+
+            Assert.Equal(digest, root.Value);
+        }
+
         [Fact]
         public void BuildTree_WithSingleLeaf_ShouldSetRootCorrectly()
         {

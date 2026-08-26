@@ -133,6 +133,7 @@ bool consistent = MerkleTree.VerifyConsistency(
 - `Create(string)` - Hash from string
 - `Create(byte[])` - Hash from bytes
 - `Create(ReadOnlySpan<byte>)` - Zero-allocation hash from span
+- `FromDigest(ReadOnlySpan<byte>)` - Create from an existing digest without hashing again
 - `ToHex()` - Convert to hexadecimal string
 - `FromHex(string)` - Parse from hexadecimal string
 
