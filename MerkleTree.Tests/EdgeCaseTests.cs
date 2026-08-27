@@ -101,14 +101,13 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
-        public void SetHash_InvalidLength_ThrowsException()
+        public void FromDigest_EmptyDigest_ThrowsException()
         {
             // Empty digests are invalid.
-            var merkleHash = MerkleHash.Create("test");
             var invalidHash = Array.Empty<byte>();
             
-            var ex = Assert.Throws<MerkleException>(() => merkleHash.SetHash(invalidHash));
-            Assert.Contains("Hash cannot be empty", ex.Message);
+            var ex = Assert.Throws<MerkleException>(() => MerkleHash.FromDigest(invalidHash));
+            Assert.Contains("Digest cannot be empty", ex.Message);
         }
 
         [Fact]

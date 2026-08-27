@@ -10,18 +10,22 @@ namespace Clifton.Blockchain
     {  
         private static readonly byte[] LeafDomainPrefix = { 0x00 };
         private static readonly byte[] NodeDomainPrefix = { 0x01 };
+        private byte[] _value;
 
-        public byte[] Value { get; protected set; }
+        /// <summary>
+        /// Gets a copy of the hash digest.
+        /// </summary>
+        public byte[] Value => _value.ToArray();
   
         protected MerkleHash()  
         {
-            Value = Array.Empty<byte>();
+            _value = Array.Empty<byte>();
         }  
   
         public static MerkleHash Create(byte[] buffer)  
         {  
-            MerkleHash hash = new MerkleHash();  
-            hash.ComputeHash(buffer);  
+            MerkleHash hash = new MerkleHash();
+            hash.ComputeHashCore(buffer);
   
             return hash;  
         }
@@ -33,14 +37,14 @@ namespace Clifton.Blockchain
         public static MerkleHash Create(ReadOnlySpan<byte> buffer)
         {
             MerkleHash hash = new MerkleHash();
-            hash.ComputeHash(buffer);
+            hash.ComputeHashCore(buffer);
             return hash;
         }
 
         public static MerkleHash Create(byte[] buffer, HashAlgorithm hashAlgorithm)
         {
             MerkleHash hash = new MerkleHash();
-            hash.ComputeHash(buffer, hashAlgorithm);
+            hash.ComputeHashCore(buffer, hashAlgorithm);
 
             return hash;
         }
@@ -52,7 +56,7 @@ namespace Clifton.Blockchain
         public static MerkleHash Create(ReadOnlySpan<byte> buffer, HashAlgorithm hashAlgorithm)
         {
             MerkleHash hash = new MerkleHash();
-            hash.ComputeHash(buffer, hashAlgorithm);
+            hash.ComputeHashCore(buffer, hashAlgorithm);
             return hash;
         }
 
@@ -67,7 +71,7 @@ namespace Clifton.Blockchain
             }
 
             MerkleHash hash = new MerkleHash();
-            hash.SetHash(digest.ToArray());
+            hash.SetHashCore(digest.ToArray());
             return hash;
         }
 
@@ -145,7 +149,7 @@ namespace Clifton.Blockchain
             {
                 byte[] bytes = HexEncoder.Decode(hexString);
                 MerkleHash hash = new MerkleHash();
-                hash.SetHash(bytes);
+                hash.SetHashCore(bytes);
                 return hash;
             }
             catch (FormatException ex)
@@ -154,7 +158,7 @@ namespace Clifton.Blockchain
             }
         }
   
-        public void ComputeHash(byte[] buffer)  
+        private void ComputeHashCore(byte[] buffer)
         {  
             using (SHA256 sha256 = SHA256.Create())  
             {  
@@ -162,7 +166,7 @@ namespace Clifton.Blockchain
             }  
         }
 
-        public void ComputeHash(ReadOnlySpan<byte> buffer)
+        private void ComputeHashCore(ReadOnlySpan<byte> buffer)
         {
             using (SHA256 sha256 = SHA256.Create())
             {
@@ -193,11 +197,11 @@ namespace Clifton.Blockchain
                     {
                         throw new MerkleException($"Hash algorithm produced unexpected output length: {bytesWritten}");
                     }
-                    SetHash(hashOutput.ToArray());
+                    SetHashCore(hashOutput.ToArray());
                 }
                 else
                 {
-                    SetHash(sha256.ComputeHash(prefixedBuffer.Slice(0, prefixedLength).ToArray()));
+                    SetHashCore(sha256.ComputeHash(prefixedBuffer.Slice(0, prefixedLength).ToArray()));
                 }
             }
             finally
@@ -209,30 +213,30 @@ namespace Clifton.Blockchain
             }
         }
 
-        public void ComputeHash(byte[] buffer, HashAlgorithm hashAlgorithm)
+        private void ComputeHashCore(byte[] buffer, HashAlgorithm hashAlgorithm)
         {
             if (hashAlgorithm == null)
             {
                 throw new ArgumentNullException(nameof(hashAlgorithm));
             }
 
-            SetHash(ComputeHashWithPrefix(hashAlgorithm, LeafDomainPrefix, buffer));
+            SetHashCore(ComputeHashWithPrefix(hashAlgorithm, LeafDomainPrefix, buffer));
         }
   
-        public void ComputeHash(ReadOnlySpan<byte> buffer, HashAlgorithm hashAlgorithm)
+        private void ComputeHashCore(ReadOnlySpan<byte> buffer, HashAlgorithm hashAlgorithm)
         {
             if (hashAlgorithm == null)
             {
                 throw new ArgumentNullException(nameof(hashAlgorithm));
             }
 
-            SetHash(ComputeHashWithPrefix(hashAlgorithm, LeafDomainPrefix, buffer.ToArray()));
+            SetHashCore(ComputeHashWithPrefix(hashAlgorithm, LeafDomainPrefix, buffer.ToArray()));
         }
 
-        public void SetHash(byte[] hash)  
+        private void SetHashCore(byte[] hash)
         {  
             MerkleTree.Contract(() => hash is not null && hash.Length > 0, "Hash cannot be empty.");
-            Value = hash;  
+            _value = hash.ToArray();
         }
 
         private static MerkleHash CreateCombined(MerkleHash left, MerkleHash right, HashAlgorithm? hashAlgorithm)
@@ -241,11 +245,11 @@ namespace Clifton.Blockchain
             if (hashAlgorithm == null)
             {
                 using SHA256 sha256 = SHA256.Create();
-                hash.SetHash(ComputeHashWithPrefix(sha256, NodeDomainPrefix, left.Value, right.Value));
+                hash.SetHashCore(ComputeHashWithPrefix(sha256, NodeDomainPrefix, left.Value, right.Value));
             }
             else
             {
-                hash.SetHash(ComputeHashWithPrefix(hashAlgorithm, NodeDomainPrefix, left.Value, right.Value));
+                hash.SetHashCore(ComputeHashWithPrefix(hashAlgorithm, NodeDomainPrefix, left.Value, right.Value));
             }
 
             return hash;

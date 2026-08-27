@@ -154,8 +154,8 @@ namespace MerkleTree.Tests
         {
             var publicInstanceMethods = typeof(MerkleHash).GetMethods(BindingFlags.Instance | BindingFlags.Public);
 
-            Assert.DoesNotContain(publicInstanceMethods, method => method.Name == nameof(MerkleHash.SetHash));
-            Assert.DoesNotContain(publicInstanceMethods, method => method.Name == nameof(MerkleHash.ComputeHash));
+            Assert.DoesNotContain(publicInstanceMethods, method => method.Name == "SetHash");
+            Assert.DoesNotContain(publicInstanceMethods, method => method.Name == "ComputeHash");
         }
 
         [Fact]
