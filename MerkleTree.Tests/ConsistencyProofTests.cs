@@ -213,5 +213,21 @@ namespace MerkleTree.Tests
 
             Assert.Throws<MerkleException>(() => tree.ConsistencyProof(2));
         }
+
+        [Fact]
+        public void ConsistencyAuditProof_WithDuplicateNodeHash_DoesNotThrow()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            var repeatedHash = MerkleHash.Create("repeated-leaf");
+            tree.AppendLeaf(repeatedHash);
+            tree.AppendLeaf(repeatedHash);
+            tree.AppendLeaf(repeatedHash);
+            tree.AppendLeaf(repeatedHash);
+            tree.BuildTree();
+
+            var proof = tree.ConsistencyAuditProof(repeatedHash);
+
+            Assert.NotNull(proof);
+        }
     }
 }

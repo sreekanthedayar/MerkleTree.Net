@@ -29,6 +29,8 @@ namespace Clifton.Blockchain
                     throw new MerkleException("Failed to deserialize audit proof package due to missing required properties.");
                 }
 
+                ValidateAuditProofPackage(package);
+
                 return package;
             }
             catch (JsonException ex)
@@ -52,11 +54,67 @@ namespace Clifton.Blockchain
                     throw new MerkleException("Failed to deserialize consistency proof package due to missing required properties.");
                 }
 
+                ValidateConsistencyProofPackage(package);
+
                 return package;
             }
             catch (JsonException ex)
             {
                 throw new MerkleException("Failed to deserialize consistency proof package: " + ex.Message, ex);
+            }
+        }
+
+        private static void ValidateAuditProofPackage(AuditProofPackage package)
+        {
+            if (package.Version != "1.0" || package.Type != "merkle_audit_proof" || package.Timestamp == default)
+            {
+                throw new MerkleException("Failed to deserialize audit proof package due to invalid metadata.");
+            }
+
+            if (string.IsNullOrWhiteSpace(package.TreeMetadata.RootHash) ||
+                string.IsNullOrWhiteSpace(package.TreeMetadata.HashAlgorithm) ||
+                string.IsNullOrWhiteSpace(package.Proof.LeafHash) ||
+                package.Proof.ProofPath == null)
+            {
+                throw new MerkleException("Failed to deserialize audit proof package due to missing required properties.");
+            }
+
+            for (int i = 0; i < package.Proof.ProofPath.Count; i++)
+            {
+                var proofNode = package.Proof.ProofPath[i];
+                if (proofNode == null ||
+                    string.IsNullOrWhiteSpace(proofNode.Hash) ||
+                    (proofNode.Direction != "Left" && proofNode.Direction != "Right"))
+                {
+                    throw new MerkleException("Failed to deserialize audit proof package due to an invalid proof path.");
+                }
+            }
+        }
+
+        private static void ValidateConsistencyProofPackage(ConsistencyProofPackage package)
+        {
+            if (package.Version != "1.0" || package.Type != "merkle_consistency_proof" || package.Timestamp == default)
+            {
+                throw new MerkleException("Failed to deserialize consistency proof package due to invalid metadata.");
+            }
+
+            if (string.IsNullOrWhiteSpace(package.TreeMetadata.OldRootHash) ||
+                string.IsNullOrWhiteSpace(package.TreeMetadata.NewRootHash) ||
+                string.IsNullOrWhiteSpace(package.TreeMetadata.HashAlgorithm) ||
+                package.Proof.ProofPath == null)
+            {
+                throw new MerkleException("Failed to deserialize consistency proof package due to missing required properties.");
+            }
+
+            for (int i = 0; i < package.Proof.ProofPath.Count; i++)
+            {
+                var proofNode = package.Proof.ProofPath[i];
+                if (proofNode == null ||
+                    string.IsNullOrWhiteSpace(proofNode.Hash) ||
+                    proofNode.Direction != "Consistency")
+                {
+                    throw new MerkleException("Failed to deserialize consistency proof package due to an invalid proof path.");
+                }
             }
         }
 

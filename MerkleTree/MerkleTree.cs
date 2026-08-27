@@ -225,8 +225,9 @@ namespace Clifton.Blockchain
 
             List<MerkleProofHash> auditTrail = new List<MerkleProofHash>();
 
-            var node = RootNode.Single(n => n.Hash == nodeHash);
-            var parent = node.Parent;
+            var node = RootNode.FirstOrDefault(n => n.Hash == nodeHash);
+            Contract(() => node != null, "The requested node hash was not found in the tree.");
+            var parent = node!.Parent;
             BuildAuditTrail(auditTrail, parent, node);
 
             return auditTrail;

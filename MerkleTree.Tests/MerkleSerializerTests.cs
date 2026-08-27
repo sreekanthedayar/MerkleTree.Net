@@ -140,6 +140,38 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void Deserialization_IncompleteAuditPackage_ThrowsException()
+        {
+            const string json = "{\"version\":\"1.0\",\"type\":\"merkle_audit_proof\",\"treeMetadata\":{},\"proof\":{}}";
+
+            Assert.Throws<MerkleException>(() => MerkleSerializer.DeserializeAuditProofPackage(json));
+        }
+
+        [Fact]
+        public void Deserialization_IncompleteConsistencyPackage_ThrowsException()
+        {
+            const string json = "{\"version\":\"1.0\",\"type\":\"merkle_consistency_proof\",\"treeMetadata\":{},\"proof\":{}}";
+
+            Assert.Throws<MerkleException>(() => MerkleSerializer.DeserializeConsistencyProofPackage(json));
+        }
+
+        [Fact]
+        public void Deserialization_InvalidAuditPackageVersionOrType_ThrowsException()
+        {
+            const string json = "{\"version\":\"2.0\",\"type\":\"not-a-merkle-proof\",\"treeMetadata\":{\"rootHash\":\"root\",\"leafCount\":1,\"treeDepth\":0,\"hashAlgorithm\":\"SHA256\"},\"proof\":{\"leafHash\":\"leaf\",\"proofPath\":[]}}";
+
+            Assert.Throws<MerkleException>(() => MerkleSerializer.DeserializeAuditProofPackage(json));
+        }
+
+        [Fact]
+        public void Deserialization_InvalidConsistencyPackageVersionOrType_ThrowsException()
+        {
+            const string json = "{\"version\":\"2.0\",\"type\":\"not-a-merkle-proof\",\"treeMetadata\":{\"oldRootHash\":\"old-root\",\"newRootHash\":\"new-root\",\"oldLeafCount\":1,\"newLeafCount\":2,\"hashAlgorithm\":\"SHA256\"},\"proof\":{\"proofPath\":[]}}";
+
+            Assert.Throws<MerkleException>(() => MerkleSerializer.DeserializeConsistencyProofPackage(json));
+        }
+
+        [Fact]
         public void Serialization_EdgeCases_HandlesGracefully()
         {
             // Arrange
