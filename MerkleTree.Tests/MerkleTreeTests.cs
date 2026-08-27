@@ -201,5 +201,20 @@ namespace MerkleTree.Tests
 
             Assert.NotNull(tree.RootNode);
         }
+
+        [Fact]
+        public void FixOddNumberLeaves_DoesNotChangeRfc6962Root()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            tree.AppendLeaf(MerkleHash.Create("A"));
+            tree.AppendLeaf(MerkleHash.Create("B"));
+            tree.AppendLeaf(MerkleHash.Create("C"));
+            var originalRoot = tree.BuildTree();
+
+            tree.FixOddNumberLeaves();
+            var rootAfterFix = tree.BuildTree();
+
+            Assert.Equal(originalRoot, rootAfterFix);
+        }
     }
 }

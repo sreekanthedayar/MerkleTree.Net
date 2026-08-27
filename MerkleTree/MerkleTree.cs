@@ -151,20 +151,13 @@ namespace Clifton.Blockchain
         }
 
         /// <summary>
-        /// If we have an odd number of leaves, add a leaf that
-        /// is a duplicate of the last leaf hash so that when we add the leaves of the new tree,
-        /// we don't change the root hash of the current tree.
-        /// This method should only be used if you have a specific reason that you need to balance
-        /// the last node with it's right branch, for example as a pre-step to computing an audit trail
-        /// on the last leaf of an odd number of leaves in the tree.
+        /// Retained for source compatibility. RFC 6962-style unbalanced trees do not require
+        /// duplicating an odd final leaf, so this method intentionally performs no action.
         /// </summary>
+        [Obsolete("FixOddNumberLeaves is unnecessary for RFC 6962-style unbalanced trees.")]
         public void FixOddNumberLeaves()
         {
-            if ((leaves.Count & 1) == 1)
-            {
-                var lastLeaf = leaves[leaves.Count - 1]; // Use indexer instead of Last()
-                var l = AppendLeaf(lastLeaf.Hash);
-            }
+            // No-op: unbalanced tree construction carries an unpaired node upward.
         }
 
         /// <summary>
