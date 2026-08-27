@@ -201,5 +201,17 @@ namespace MerkleTree.Tests
                 2,
                 new List<MerkleProofHash>()));
         }
+
+        [Fact]
+        public void ConsistencyProof_AfterAppendingWithoutRebuild_IsRejected()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            tree.AppendLeaf(MerkleHash.Create("leaf1"));
+            tree.AppendLeaf(MerkleHash.Create("leaf2"));
+            tree.BuildTree();
+            tree.AppendLeaf(MerkleHash.Create("leaf3"));
+
+            Assert.Throws<MerkleException>(() => tree.ConsistencyProof(2));
+        }
     }
 }

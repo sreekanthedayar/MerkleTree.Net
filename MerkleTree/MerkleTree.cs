@@ -13,6 +13,7 @@ namespace Clifton.Blockchain
         protected List<MerkleNode> nodes = new List<MerkleNode>();
         protected List<MerkleNode> leaves = new List<MerkleNode>();
         private bool _disposed = false;
+        private bool _isDirty;
 
         public static void Contract(Func<bool> action, string msg)
         {
@@ -75,6 +76,7 @@ namespace Clifton.Blockchain
             var node = CreateNode(hash);
             nodes.Add(node);
             leaves.Add(node);
+            _isDirty = true;
 
             return node;
         }
@@ -172,6 +174,7 @@ namespace Clifton.Blockchain
         {
             Contract(() => leaves.Count > 0, "Cannot build a tree with no leaves.");
             BuildTree(leaves);
+            _isDirty = false;
 
             return RootNode.Hash;
         }
@@ -183,6 +186,9 @@ namespace Clifton.Blockchain
         /// <returns>The audit trail of hashes needed to create the root, or an empty list if the leaf hash doesn't exist.</returns>
         public List<MerkleProofHash> AuditProof(MerkleHash leafHash)
         {
+            Contract(() => RootNode != null, "Build the tree before requesting an audit proof.");
+            Contract(() => !_isDirty, "Build the tree after appending leaves before requesting a proof.");
+
             List<MerkleProofHash> auditTrail = new List<MerkleProofHash>();
 
             var leafNode = FindLeaf(leafHash);
@@ -204,6 +210,7 @@ namespace Clifton.Blockchain
         public List<MerkleProofHash> ConsistencyProof(int m)
         {
             Contract(() => RootNode != null, "Build the tree before requesting a consistency proof.");
+            Contract(() => !_isDirty, "Build the tree after appending leaves before requesting a proof.");
             Contract(() => m > 0 && m <= leaves.Count, "The old tree size must be between 1 and the current tree size.");
 
             var proof = new List<MerkleProofHash>();
@@ -220,6 +227,9 @@ namespace Clifton.Blockchain
         /// </summary>
         public List<MerkleProofHash> ConsistencyAuditProof(MerkleHash nodeHash)
         {
+            Contract(() => RootNode != null, "Build the tree before requesting a consistency proof.");
+            Contract(() => !_isDirty, "Build the tree after appending leaves before requesting a proof.");
+
             List<MerkleProofHash> auditTrail = new List<MerkleProofHash>();
 
             var node = RootNode.Single(n => n.Hash == nodeHash);
