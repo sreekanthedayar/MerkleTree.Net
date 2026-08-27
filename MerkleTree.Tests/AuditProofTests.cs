@@ -171,6 +171,17 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void AuditHashPairs_NullProofEntry_ReturnsEmpty()
+        {
+            var leaf = MerkleHash.Create("leaf");
+            var proof = new List<MerkleProofHash> { null! };
+
+            var pairs = Clifton.Blockchain.MerkleTree.AuditHashPairs(leaf, proof);
+
+            Assert.Empty(pairs);
+        }
+
+        [Fact]
         public void AuditProof_NonExistentLeaf_ReturnsEmptyList()
         {
             var tree = new Clifton.Blockchain.MerkleTree();

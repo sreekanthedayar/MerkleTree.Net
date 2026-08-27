@@ -172,14 +172,36 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void Deserialization_InvalidAuditHashOrMetadata_ThrowsException()
+        {
+            const string json = "{\"version\":\"1.0\",\"type\":\"merkle_audit_proof\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"treeMetadata\":{\"rootHash\":\"not-a-hash\",\"leafCount\":-1,\"treeDepth\":-1,\"hashAlgorithm\":\"UNKNOWN\"},\"proof\":{\"leafHash\":\"also-not-a-hash\",\"proofPath\":[]}}";
+
+            Assert.Throws<MerkleException>(() => MerkleSerializer.DeserializeAuditProofPackage(json));
+        }
+
+        [Fact]
+        public void Deserialization_InvalidConsistencyHashOrMetadata_ThrowsException()
+        {
+            const string json = "{\"version\":\"1.0\",\"type\":\"merkle_consistency_proof\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"treeMetadata\":{\"oldRootHash\":\"not-a-hash\",\"newRootHash\":\"also-not-a-hash\",\"oldLeafCount\":-1,\"newLeafCount\":0,\"hashAlgorithm\":\"UNKNOWN\"},\"proof\":{\"proofPath\":[]}}";
+
+            Assert.Throws<MerkleException>(() => MerkleSerializer.DeserializeConsistencyProofPackage(json));
+        }
+
+        [Fact]
+        public void Deserialization_NullJson_ThrowsMerkleException()
+        {
+            Assert.Throws<MerkleException>(() => MerkleSerializer.DeserializeAuditProofPackage(null!));
+        }
+
+        [Fact]
         public void Serialization_EdgeCases_HandlesGracefully()
         {
             // Arrange
             var emptyAuditPackage = new AuditProofPackage
             {
                 Timestamp = DateTime.UtcNow,
-                TreeMetadata = new AuditTreeMetadata { RootHash = "root", LeafCount = 0, TreeDepth = 0, HashAlgorithm = "SHA256" },
-                Proof = new AuditProof { LeafHash = "leaf", ProofPath = new List<ProofNode>() } // Empty proof path
+                TreeMetadata = new AuditTreeMetadata { RootHash = new string('0', 64), LeafCount = 1, TreeDepth = 0, HashAlgorithm = "SHA256" },
+                Proof = new AuditProof { LeafHash = new string('1', 64), ProofPath = new List<ProofNode>() } // Empty proof path
             };
 
             // Act

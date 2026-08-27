@@ -33,8 +33,8 @@ namespace Clifton.Blockchain
         /// </summary>  
         public MerkleNode(MerkleNode left, MerkleNode? right = null)  
         {  
-            LeftNode = left;  
-            RightNode = right;  
+            LeftNode = CloneIfAttached(left);
+            RightNode = right == null ? null : CloneIfAttached(right);
             LeftNode.Parent = this;  
               
             if (RightNode != null)  
@@ -51,8 +51,8 @@ namespace Clifton.Blockchain
         public MerkleNode(MerkleNode left, MerkleNode? right, HashAlgorithm hashAlgorithm)
         {
             _hashAlgorithm = hashAlgorithm;
-            LeftNode = left;
-            RightNode = right;
+            LeftNode = CloneIfAttached(left);
+            RightNode = right == null ? null : CloneIfAttached(right);
             LeftNode.Parent = this;
 
             if (RightNode != null)
@@ -99,6 +99,7 @@ namespace Clifton.Blockchain
         public MerkleHash ComputeHash(byte[] buffer)  
         {  
             Hash = MerkleHash.Create(buffer);  
+            PropagateHashToParent();
   
             return Hash;  
         }
@@ -106,6 +107,7 @@ namespace Clifton.Blockchain
         public MerkleHash ComputeHash(byte[] buffer, HashAlgorithm hashAlgorithm)
         {
             Hash = MerkleHash.Create(buffer, hashAlgorithm);
+            PropagateHashToParent();
 
             return Hash;
         }
@@ -120,7 +122,8 @@ namespace Clifton.Blockchain
   
         public void SetLeftNode(MerkleNode node)  
         {  
-            LeftNode = node;  
+            DetachChild(LeftNode);
+            LeftNode = PrepareChild(node);
             LeftNode.Parent = this;  
             if (_hashAlgorithm == null)
             {
@@ -135,14 +138,16 @@ namespace Clifton.Blockchain
         public void SetLeftNode(MerkleNode node, HashAlgorithm hashAlgorithm)
         {
             _hashAlgorithm = hashAlgorithm;
-            LeftNode = node;
+            DetachChild(LeftNode);
+            LeftNode = PrepareChild(node);
             LeftNode.Parent = this;
             ComputeHash(hashAlgorithm);
         }
   
         public void SetRightNode(MerkleNode node)  
         {  
-            RightNode = node;  
+            DetachChild(RightNode);
+            RightNode = PrepareChild(node);
             RightNode.Parent = this;  
   
             if (LeftNode != null)  
@@ -161,7 +166,8 @@ namespace Clifton.Blockchain
         public void SetRightNode(MerkleNode node, HashAlgorithm hashAlgorithm)
         {
             _hashAlgorithm = hashAlgorithm;
-            RightNode = node;
+            DetachChild(RightNode);
+            RightNode = PrepareChild(node);
             RightNode.Parent = this;
 
             if (LeftNode != null)
@@ -188,6 +194,11 @@ namespace Clifton.Blockchain
             {  
                 return true;  
             }  
+
+            if (LeftNode == null || !LeftNode.VerifyHash())
+            {
+                return false;
+            }
   
             if (RightNode == null && LeftNode != null)  
             {  
@@ -196,6 +207,11 @@ namespace Clifton.Blockchain
   
             if (LeftNode != null && RightNode != null)  
             {  
+                if (!RightNode.VerifyHash())
+                {
+                    return false;
+                }
+
                 MerkleHash leftRightHash = _hashAlgorithm == null
                     ? MerkleHash.Create(LeftNode.Hash, RightNode.Hash)
                     : MerkleHash.Create(LeftNode.Hash, RightNode.Hash, _hashAlgorithm);
@@ -218,6 +234,7 @@ namespace Clifton.Blockchain
             if (LeftNode == null)  
             {  
                 Hash = MerkleHash.Create(new byte[0]);
+                PropagateHashToParent();
                 return;  
             }  
               
@@ -230,6 +247,7 @@ namespace Clifton.Blockchain
             if (LeftNode == null)
             {
                 Hash = MerkleHash.Create(new byte[0]);
+                PropagateHashToParent();
                 return;
             }
 
@@ -242,6 +260,72 @@ namespace Clifton.Blockchain
             else
             {
                 Parent?.ComputeHash();
+            }
+        }
+
+        internal void DetachFromParent()
+        {
+            if (Parent != null &&
+                (ReferenceEquals(Parent.LeftNode, this) || ReferenceEquals(Parent.RightNode, this)))
+            {
+                Parent = null;
+            }
+        }
+
+        private void PropagateHashToParent()
+        {
+            if (Parent == null)
+            {
+                return;
+            }
+
+            if (Parent._hashAlgorithm == null)
+            {
+                Parent.ComputeHash();
+            }
+            else
+            {
+                Parent.ComputeHash(Parent._hashAlgorithm);
+            }
+        }
+
+        private MerkleNode PrepareChild(MerkleNode node)
+        {
+            if (ReferenceEquals(node, this))
+            {
+                throw new System.ArgumentException("A node cannot be attached to itself.", nameof(node));
+            }
+
+            return node.Parent == null || ReferenceEquals(node.Parent, this)
+                ? node
+                : CloneNode(node);
+        }
+
+        private static MerkleNode CloneIfAttached(MerkleNode node)
+        {
+            return node.Parent == null ? node : CloneNode(node);
+        }
+
+        private static MerkleNode CloneNode(MerkleNode node)
+        {
+            if (node.LeftNode == null)
+            {
+                return new MerkleNode(node.Hash);
+            }
+
+            var left = CloneNode(node.LeftNode);
+            var right = node.RightNode == null ? null : CloneNode(node.RightNode);
+
+            return node._hashAlgorithm == null
+                ? new MerkleNode(left, right)
+                : new MerkleNode(left, right, node._hashAlgorithm);
+        }
+
+        private void DetachChild(MerkleNode? child)
+        {
+            if (child != null && ReferenceEquals(child.Parent, this))
+            {
+                child.Parent = null;
             }
         }
 

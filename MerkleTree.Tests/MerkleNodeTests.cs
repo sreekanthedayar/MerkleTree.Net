@@ -133,5 +133,62 @@ namespace MerkleTree.Tests
 
             Assert.True(parent.VerifyHash());
         }
+
+        [Fact]
+        public void ComputeHash_OnBuiltLeaf_UpdatesAncestors()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            var leaf = tree.AppendLeaf(MerkleHash.Create("leaf1"));
+            tree.AppendLeaf(MerkleHash.Create("leaf2"));
+            tree.AppendLeaf(MerkleHash.Create("leaf3"));
+            tree.AppendLeaf(MerkleHash.Create("leaf4"));
+            var originalRoot = tree.BuildTree();
+
+            leaf.ComputeHash(System.Text.Encoding.UTF8.GetBytes("tampered"));
+
+            Assert.NotEqual(originalRoot, tree.RootNode.Hash);
+        }
+
+        [Fact]
+        public void Constructor_WithNodeFromAnotherTree_DoesNotReparentSourceNode()
+        {
+            var sourceLeaf = new MerkleNode(MerkleHash.Create("source-leaf"));
+            var sourceSibling = new MerkleNode(MerkleHash.Create("source-sibling"));
+            var sourceParent = new MerkleNode(sourceLeaf, sourceSibling);
+
+            _ = new MerkleNode(sourceLeaf, new MerkleNode(MerkleHash.Create("destination-sibling")));
+
+            Assert.Same(sourceParent, sourceLeaf.Parent);
+        }
+
+        [Fact]
+        public void SetLeftNode_WithNodeFromAnotherTree_DoesNotReparentSourceNode()
+        {
+            var sourceLeaf = new MerkleNode(MerkleHash.Create("source-leaf"));
+            var sourceSibling = new MerkleNode(MerkleHash.Create("source-sibling"));
+            var sourceParent = new MerkleNode(sourceLeaf, sourceSibling);
+            var destination = new MerkleNode(
+                new MerkleNode(MerkleHash.Create("destination-left")),
+                new MerkleNode(MerkleHash.Create("destination-right")));
+
+            destination.SetLeftNode(sourceLeaf);
+
+            Assert.Same(sourceParent, sourceLeaf.Parent);
+        }
+
+        [Fact]
+        public void SetRightNode_WithNodeFromAnotherTree_DoesNotReparentSourceNode()
+        {
+            var sourceLeaf = new MerkleNode(MerkleHash.Create("source-leaf"));
+            var sourceSibling = new MerkleNode(MerkleHash.Create("source-sibling"));
+            var sourceParent = new MerkleNode(sourceLeaf, sourceSibling);
+            var destination = new MerkleNode(
+                new MerkleNode(MerkleHash.Create("destination-left")),
+                new MerkleNode(MerkleHash.Create("destination-right")));
+
+            destination.SetRightNode(sourceLeaf);
+
+            Assert.Same(sourceParent, sourceLeaf.Parent);
+        }
     }
 }

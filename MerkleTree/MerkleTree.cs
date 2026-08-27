@@ -166,6 +166,15 @@ namespace Clifton.Blockchain
         public MerkleHash BuildTree()
         {
             Contract(() => leaves.Count > 0, "Cannot build a tree with no leaves.");
+
+            // A rebuild must reuse the public leaf nodes. Clear the links created by
+            // the previous build so the node constructors do not clone them merely
+            // because they are already attached to an old parent tree.
+            for (int i = 0; i < leaves.Count; i++)
+            {
+                leaves[i].DetachFromParent();
+            }
+
             BuildTree(leaves);
             _isDirty = false;
 
@@ -324,7 +333,7 @@ namespace Clifton.Blockchain
         /// </summary>
         public static List<Tuple<MerkleHash, MerkleHash>> AuditHashPairs(MerkleHash leafHash, List<MerkleProofHash> auditTrail)
         {
-            if (auditTrail is null)
+            if (leafHash is null || auditTrail is null)
             {
                 return new List<Tuple<MerkleHash, MerkleHash>>();
             }
@@ -336,6 +345,11 @@ namespace Clifton.Blockchain
             for (int i = 0; i < auditTrail.Count; i++)
             {
                 var auditHash = auditTrail[i];
+                if (auditHash is null || auditHash.Hash is null)
+                {
+                    return new List<Tuple<MerkleHash, MerkleHash>>();
+                }
+
                 switch (auditHash.Direction)
                 {
                     case MerkleProofHash.Branch.Left:
@@ -347,6 +361,9 @@ namespace Clifton.Blockchain
                         auditPairs.Add(new Tuple<MerkleHash, MerkleHash>(auditHash.Hash, testHash));
                         testHash = MerkleHash.Create(auditHash.Hash, testHash);
                         break;
+
+                    default:
+                        return new List<Tuple<MerkleHash, MerkleHash>>();
                 }
             }
 
