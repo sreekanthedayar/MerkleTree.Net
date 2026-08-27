@@ -11,7 +11,7 @@
 
     <!-- NuGet Package Metadata -->
     <PackageId>MerkleTree.Net</PackageId>
-    <Version>2.1.0</Version>
+    <Version>2.2.0</Version>
     <Authors>Marc Clifton, Sreekanth Edayar</Authors>
     <Description>A .NET port of Marc Clifton's MerkleTree library. Provides cryptographic Merkle tree implementation with audit proofs and consistency proofs for blockchain and transparency log applications.</Description>
     <Copyright>Copyright (c) Marc Clifton. .NET port by Sreekanth Edayar</Copyright>

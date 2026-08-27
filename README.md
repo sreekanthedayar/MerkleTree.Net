@@ -9,6 +9,31 @@ Cryptographic Merkle tree implementation with audit proofs and consistency proof
 dotnet add package MerkleTree.Net
 ```
 
+## What's New in v2.2.0
+
+Version 2.2.0 includes correctness, security, and compatibility fixes after v2.1.0:
+
+- Added support for single-leaf audit proofs and preserved precomputed leaf digests.
+- Switched tree hashing to RFC 6962-style domain-separated leaf and node hashes.
+- Added support for variable-length custom hash algorithms.
+- Made `MerkleHash` immutable from callers by protecting its underlying digest.
+- Prevented `AppendLeaf`, node constructors, and node setters from reparenting nodes owned by another tree.
+- Rejected audit and consistency proofs requested after leaves are appended but before the tree is rebuilt.
+- Preserved configured custom hash algorithms through node mutation APIs.
+- Retained `FixOddNumberLeaves()` for source compatibility as an obsolete no-op under RFC 6962 tree semantics.
+- Hardened proof verification and deserialization against malformed, incomplete, invalid, or ambiguous proof data.
+- Added regression coverage for hash mutation, node ownership, custom algorithms, stale trees, odd-leaf handling, duplicate hashes, and malformed proofs.
+
+## Breaking Changes in v2.2.0
+
+- Merkle roots and proofs are not compatible with versions that used the previous hash construction. v2.2.0 uses RFC 6962-style domain separation.
+- `MerkleHash.Value` now returns a copy. Mutating the returned array no longer mutates the hash.
+- `MerkleHash` hash-mutator methods are no longer public; create hashes with `Create`, `FromDigest`, or `FromHex`.
+- Proof generation now rejects trees that have new leaves appended since the last `BuildTree()` call.
+- `FixOddNumberLeaves()` is obsolete and does not duplicate leaves under the RFC 6962 tree model.
+- Node constructors and setters clone nodes already attached to another tree instead of reparenting them.
+- Proof-package deserialization now rejects unsupported metadata, invalid hashes, invalid counts, and malformed proof paths.
+
 ## ⚠️ Breaking Changes in v2.1.0
 
 **If you're upgrading from v1.0.1, please read carefully:**
