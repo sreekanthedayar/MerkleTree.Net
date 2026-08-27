@@ -251,9 +251,22 @@ namespace Clifton.Blockchain
             for (int i = 0; i < auditTrail.Count; i++)
             {
                 var auditHash = auditTrail[i];
-                testHash = auditHash.Direction == MerkleProofHash.Branch.Left ?
-                    MerkleHash.Create(testHash, auditHash.Hash) :
-                    MerkleHash.Create(auditHash.Hash, testHash);
+                if (auditHash is null || auditHash.Hash is null)
+                {
+                    return false;
+                }
+
+                switch (auditHash.Direction)
+                {
+                    case MerkleProofHash.Branch.Left:
+                        testHash = MerkleHash.Create(testHash, auditHash.Hash);
+                        break;
+                    case MerkleProofHash.Branch.Right:
+                        testHash = MerkleHash.Create(auditHash.Hash, testHash);
+                        break;
+                    default:
+                        return false;
+                }
             }
 
             return rootHash == testHash;
@@ -281,9 +294,22 @@ namespace Clifton.Blockchain
             for (int i = 0; i < auditTrail.Count; i++)
             {
                 var auditHash = auditTrail[i];
-                testHash = auditHash.Direction == MerkleProofHash.Branch.Left ?
-                    MerkleHash.Create(testHash, auditHash.Hash, HashAlgorithm) :
-                    MerkleHash.Create(auditHash.Hash, testHash, HashAlgorithm);
+                if (auditHash is null || auditHash.Hash is null)
+                {
+                    return false;
+                }
+
+                switch (auditHash.Direction)
+                {
+                    case MerkleProofHash.Branch.Left:
+                        testHash = MerkleHash.Create(testHash, auditHash.Hash, HashAlgorithm);
+                        break;
+                    case MerkleProofHash.Branch.Right:
+                        testHash = MerkleHash.Create(auditHash.Hash, testHash, HashAlgorithm);
+                        break;
+                    default:
+                        return false;
+                }
             }
 
             return rootHash == testHash;
@@ -521,9 +547,11 @@ namespace Clifton.Blockchain
             }
 
             MerkleProofHash proofNode = proof[proofIndex++];
-            if (proofNode is null)
+            if (proofNode is null ||
+                proofNode.Hash is null ||
+                proofNode.Direction != MerkleProofHash.Branch.Consistency)
             {
-                throw new InvalidOperationException("The consistency proof contains a null node.");
+                throw new InvalidOperationException("The consistency proof contains an invalid node.");
             }
 
             return proofNode.Hash;
