@@ -82,5 +82,56 @@ namespace MerkleTree.Tests
             Assert.Equal(64, parent.Hash.Value.Length);
             Assert.True(parent.VerifyHash());
         }
+
+        [Fact]
+        public void SetLeftNode_DefaultOverload_PreservesCustomHashAlgorithm()
+        {
+            using var sha512 = System.Security.Cryptography.SHA512.Create();
+            var leftNode = new MerkleNode(MerkleHash.Create("left", sha512));
+            var rightNode = new MerkleNode(MerkleHash.Create("right", sha512));
+            var parent = new MerkleNode(leftNode, rightNode, sha512);
+
+            parent.SetLeftNode(new MerkleNode(MerkleHash.Create("new-left", sha512)));
+
+            Assert.True(parent.VerifyHash());
+        }
+
+        [Fact]
+        public void SetRightNode_DefaultOverload_PreservesCustomHashAlgorithm()
+        {
+            using var sha512 = System.Security.Cryptography.SHA512.Create();
+            var leftNode = new MerkleNode(MerkleHash.Create("left", sha512));
+            var rightNode = new MerkleNode(MerkleHash.Create("right", sha512));
+            var parent = new MerkleNode(leftNode, rightNode, sha512);
+
+            parent.SetRightNode(new MerkleNode(MerkleHash.Create("new-right", sha512)));
+
+            Assert.True(parent.VerifyHash());
+        }
+
+        [Fact]
+        public void SetLeftNode_CustomOverload_PersistsHashAlgorithm()
+        {
+            using var sha512 = System.Security.Cryptography.SHA512.Create();
+            var leftNode = new MerkleNode(MerkleHash.Create("left", sha512));
+            var rightNode = new MerkleNode(MerkleHash.Create("right", sha512));
+            var parent = new MerkleNode(leftNode, rightNode);
+
+            parent.SetLeftNode(new MerkleNode(MerkleHash.Create("new-left", sha512)), sha512);
+
+            Assert.True(parent.VerifyHash());
+        }
+
+        [Fact]
+        public void SetRightNode_CustomOverload_PersistsHashAlgorithm()
+        {
+            using var sha512 = System.Security.Cryptography.SHA512.Create();
+            var leftNode = new MerkleNode(MerkleHash.Create("left", sha512));
+            var parent = new MerkleNode(leftNode);
+
+            parent.SetRightNode(new MerkleNode(MerkleHash.Create("right", sha512)), sha512);
+
+            Assert.True(parent.VerifyHash());
+        }
     }
 }

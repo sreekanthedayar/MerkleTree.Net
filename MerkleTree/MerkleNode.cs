@@ -122,11 +122,19 @@ namespace Clifton.Blockchain
         {  
             LeftNode = node;  
             LeftNode.Parent = this;  
-            ComputeHash();  
+            if (_hashAlgorithm == null)
+            {
+                ComputeHash();
+            }
+            else
+            {
+                ComputeHash(_hashAlgorithm);
+            }
         }
 
         public void SetLeftNode(MerkleNode node, HashAlgorithm hashAlgorithm)
         {
+            _hashAlgorithm = hashAlgorithm;
             LeftNode = node;
             LeftNode.Parent = this;
             ComputeHash(hashAlgorithm);
@@ -139,12 +147,20 @@ namespace Clifton.Blockchain
   
             if (LeftNode != null)  
             {  
-                ComputeHash();  
+                if (_hashAlgorithm == null)
+                {
+                    ComputeHash();
+                }
+                else
+                {
+                    ComputeHash(_hashAlgorithm);
+                }
             }  
         }
 
         public void SetRightNode(MerkleNode node, HashAlgorithm hashAlgorithm)
         {
+            _hashAlgorithm = hashAlgorithm;
             RightNode = node;
             RightNode.Parent = this;
 
