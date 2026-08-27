@@ -143,6 +143,34 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void VerifyAudit_NullProofEntry_ReturnsFalse()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            var leaf = MerkleHash.Create("leaf1");
+            tree.AppendLeaf(leaf);
+            tree.AppendLeaf(MerkleHash.Create("leaf2"));
+            var root = tree.BuildTree();
+            var proof = tree.AuditProof(leaf);
+            proof[0] = null!;
+
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyAudit(root, leaf, proof));
+        }
+
+        [Fact]
+        public void VerifyAudit_InvalidBranch_ReturnsFalse()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            tree.AppendLeaf(MerkleHash.Create("leaf1"));
+            var leaf = MerkleHash.Create("leaf2");
+            tree.AppendLeaf(leaf);
+            var root = tree.BuildTree();
+            var proof = tree.AuditProof(leaf);
+            proof[0] = new MerkleProofHash(proof[0].Hash, (MerkleProofHash.Branch)99);
+
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyAudit(root, leaf, proof));
+        }
+
+        [Fact]
         public void AuditProof_NonExistentLeaf_ReturnsEmptyList()
         {
             var tree = new Clifton.Blockchain.MerkleTree();

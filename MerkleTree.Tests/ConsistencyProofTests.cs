@@ -158,6 +158,29 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void VerifyConsistency_NullProofHash_ReturnsFalse()
+        {
+            var oldTree = new Clifton.Blockchain.MerkleTree();
+            for (int i = 0; i < 4; i++)
+                oldTree.AppendLeaf(MerkleHash.Create($"leaf{i}"));
+            var oldRoot = oldTree.BuildTree();
+
+            var newTree = new Clifton.Blockchain.MerkleTree();
+            for (int i = 0; i < 8; i++)
+                newTree.AppendLeaf(MerkleHash.Create($"leaf{i}"));
+            var newRoot = newTree.BuildTree();
+            var proof = newTree.ConsistencyProof(4);
+            proof[0] = new MerkleProofHash(null!, proof[0].Direction);
+
+            Assert.False(Clifton.Blockchain.MerkleTree.VerifyConsistency(
+                oldRoot,
+                newRoot,
+                4,
+                8,
+                proof));
+        }
+
+        [Fact]
         public void VerifyConsistency_SameTreeSizeRequiresMatchingRootsAndNoProof()
         {
             var tree = new Clifton.Blockchain.MerkleTree();
