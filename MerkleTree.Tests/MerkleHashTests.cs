@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Xunit;
@@ -130,6 +132,44 @@ namespace MerkleTree.Tests
             var hash = MerkleHash.Create(input, sha512);
 
             Assert.Equal(64, hash.Value.Length);
+        }
+
+        [Fact]
+        public void MutatingValueAfterBuild_DoesNotInvalidateTree()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            var leaf = MerkleHash.Create("A");
+            tree.AppendLeaf(leaf);
+            tree.AppendLeaf(MerkleHash.Create("B"));
+            var root = tree.BuildTree();
+
+            leaf.Value[0] ^= 0xff;
+
+            Assert.True(tree.RootNode.VerifyHash());
+            Assert.Equal(root, tree.RootNode.Hash);
+        }
+
+        [Fact]
+        public void MerkleHash_DoesNotExposePublicMutationMethods()
+        {
+            var publicInstanceMethods = typeof(MerkleHash).GetMethods(BindingFlags.Instance | BindingFlags.Public);
+
+            Assert.DoesNotContain(publicInstanceMethods, method => method.Name == nameof(MerkleHash.SetHash));
+            Assert.DoesNotContain(publicInstanceMethods, method => method.Name == nameof(MerkleHash.ComputeHash));
+        }
+
+        [Fact]
+        public void MutatingValueAfterUsingAsDictionaryKey_DoesNotBreakHashKey()
+        {
+            var hash = MerkleHash.Create("dictionary-key");
+            var values = new Dictionary<MerkleHash, string> { [hash] = "value" };
+
+            for (int i = 0; i < hash.Value.Length; i++)
+            {
+                hash.Value[i] ^= 0xff;
+            }
+
+            Assert.True(values.ContainsKey(hash));
         }
     }
 }
