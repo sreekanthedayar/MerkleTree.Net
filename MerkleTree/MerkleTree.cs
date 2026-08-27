@@ -47,10 +47,9 @@ namespace Clifton.Blockchain
         /// <returns>The appended node.</returns>
         public MerkleNode AppendLeaf(MerkleNode node)
         {
-            nodes.Add(node);
-            leaves.Add(node);
-
-            return node;
+            // Copy the hash into a new leaf so building this tree cannot overwrite
+            // the source node's parent relationship.
+            return AppendLeaf(node.Hash);
         }
 
         /// <summary>

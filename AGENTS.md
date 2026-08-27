@@ -59,4 +59,4 @@ Report only verified facts:
 - affected files;
 - tests run and their results;
 - remaining open items or compatibility concerns.
-
+- Include a suggested commit message in Conventional Commits format (`type(scope): description`); do not create the commit unless explicitly requested.

@@ -68,6 +68,23 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void AppendLeaf_WithNodeFromAnotherTree_DoesNotReparentSourceLeaf()
+        {
+            var source = new Clifton.Blockchain.MerkleTree();
+            var sourceLeaf = source.AppendLeaf(MerkleHash.Create("source-leaf"));
+            source.AppendLeaf(MerkleHash.Create("source-sibling"));
+            source.BuildTree();
+            var sourceParent = sourceLeaf.Parent;
+
+            var destination = new Clifton.Blockchain.MerkleTree();
+            destination.AppendLeaf(sourceLeaf);
+            destination.AppendLeaf(MerkleHash.Create("destination-sibling"));
+            destination.BuildTree();
+
+            Assert.Same(sourceParent, sourceLeaf.Parent);
+        }
+
+        [Fact]
         public void AddTree_PreservesSourceAuditProofs()
         {
             var source = new Clifton.Blockchain.MerkleTree();
