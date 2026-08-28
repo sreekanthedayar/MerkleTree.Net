@@ -9,6 +9,16 @@ Cryptographic Merkle tree implementation with audit proofs and consistency proof
 dotnet add package MerkleTree.Net
 ```
 
+## What's New in v2.3.0
+
+Version 2.3.0 includes performance improvements and a consistency-proof serialization fix after v2.2.0:
+
+- Optimized default SHA-256 internal-node hashing with direct `HashData` calls, `stackalloc` for small inputs, and pooled buffers for larger inputs while preserving RFC 6962 domain separation.
+- Reduced consistency-proof generation overhead by removing unnecessary full-subtree leaf enumeration from the successful path.
+- Allowed valid same-size consistency proof packages when the old and new leaf counts and roots match and the proof path is empty.
+- Continued rejecting consistency packages with decreasing leaf counts, mismatched same-size roots, or non-empty same-size proof paths.
+- Added regression coverage for same-size consistency proof serialization and deserialization.
+
 ## What's New in v2.2.0
 
 Version 2.2.0 includes correctness, security, and compatibility fixes after v2.1.0:
@@ -193,7 +203,7 @@ bool consistent = MerkleTree.VerifyConsistency(
 -  **IDisposable pattern** - Proper resource cleanup for hash algorithms
 
 ### Code Quality
--  **73 unit tests** - Comprehensive test coverage including edge cases
+-  **104 unit tests** - Comprehensive test coverage including edge cases
 -  **Benchmark suite** - Performance validation with BenchmarkDotNet
 -  **Memory diagnostics** - GC pressure analysis and optimization
 -  **Concurrency tests** - Thread-safety validation
