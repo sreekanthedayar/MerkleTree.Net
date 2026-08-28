@@ -109,7 +109,7 @@ namespace Clifton.Blockchain
   
         public override int GetHashCode()
         {
-            return ((System.Collections.IStructuralEquatable)Value).GetHashCode(System.Collections.Generic.EqualityComparer<byte>.Default);
+            return ((System.Collections.IStructuralEquatable)_value).GetHashCode(System.Collections.Generic.EqualityComparer<byte>.Default);
         }  
   
         public override bool Equals(object? obj)  
@@ -132,7 +132,7 @@ namespace Clifton.Blockchain
         /// </summary>
         public string ToHex()
         {
-            return HexEncoder.Encode(Value);
+            return HexEncoder.Encode(_value);
         }
 
         /// <summary>
@@ -244,15 +244,46 @@ namespace Clifton.Blockchain
             MerkleHash hash = new MerkleHash();
             if (hashAlgorithm == null)
             {
-                using SHA256 sha256 = SHA256.Create();
-                hash.SetHashCore(ComputeHashWithPrefix(sha256, NodeDomainPrefix, left.Value, right.Value));
+                hash._value = ComputeSha256NodeHash(left._value, right._value);
             }
             else
             {
-                hash.SetHashCore(ComputeHashWithPrefix(hashAlgorithm, NodeDomainPrefix, left.Value, right.Value));
+                hash.SetHashCore(ComputeHashWithPrefix(hashAlgorithm, NodeDomainPrefix, left._value, right._value));
             }
 
             return hash;
+        }
+
+        private static byte[] ComputeSha256NodeHash(byte[] left, byte[] right)
+        {
+            int inputLength = 1 + left.Length + right.Length;
+            byte[]? rentedInput = null;
+            Span<byte> input = inputLength <= 256
+                ? stackalloc byte[inputLength]
+                : (rentedInput = ArrayPool<byte>.Shared.Rent(inputLength));
+
+            try
+            {
+                input[0] = NodeDomainPrefix[0];
+                left.AsSpan().CopyTo(input.Slice(1, left.Length));
+                right.AsSpan().CopyTo(input.Slice(1 + left.Length, right.Length));
+
+                Span<byte> output = stackalloc byte[Constants.HASH_LENGTH];
+                int bytesWritten = SHA256.HashData(input.Slice(0, inputLength), output);
+                if (bytesWritten != Constants.HASH_LENGTH)
+                {
+                    throw new MerkleException($"Hash algorithm produced unexpected output length: {bytesWritten}");
+                }
+
+                return output.ToArray();
+            }
+            finally
+            {
+                if (rentedInput != null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedInput, clearArray: true);
+                }
+            }
         }
 
         private static byte[] ComputeHashWithPrefix(
@@ -279,7 +310,7 @@ namespace Clifton.Blockchain
   
         public bool Equals(byte[] hash)  
         {  
-            return Value.SequenceEqual(hash);  
+            return _value.SequenceEqual(hash);
         }  
   
         public bool Equals(MerkleHash hash)  
@@ -288,7 +319,7 @@ namespace Clifton.Blockchain
   
             if (((object)hash) != null)  
             {  
-                ret = Value.SequenceEqual(hash.Value);  
+                ret = _value.SequenceEqual(hash._value);
             }  
   
             return ret;  

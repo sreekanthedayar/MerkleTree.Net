@@ -200,19 +200,21 @@ bool consistent = MerkleTree.VerifyConsistency(
 
 ### Performance Benchmarks
 ```
-BenchmarkDotNet v0.15.4, .NET 8.0.18
+BenchmarkDotNet v0.15.4, .NET 10.0.3
 AMD Ryzen 5 7535HS, Windows 11
+ShortRun: 3 warmup iterations, 3 measurement iterations
 
 | Method           | Leaves | Mean      | Gen0 | Gen1 | Gen2 | Allocated  |
 |------------------|--------|-----------|------|------|------|------------|
-| BuildTree        | 100    | 106 μs    | 15   | 1    | 0    | 126 KB     |
-| BuildTree        | 1,000  | 1.13 ms   | 150  | 47   | 0    | 1.23 MB    |
-| BuildTree        | 10,000 | 19.8 ms   | 1625 | 688  | 156  | 12.47 MB   |
-| AuditProof       | 100    | 1.22 μs   | 0    | 0    | 0    | 1.16 KB    |
-| AuditProof       | 1,000  | 10.4 μs   | 0    | 0    | 0    | 1.69 KB    |
-| AuditProof       | 10,000 | 103 μs    | 0    | 0    | 0    | 2.17 KB    |
-| ConsistencyProof | 1,000  | 298 μs    | 31   | 0    | 0    | 252 KB     |
-| ConsistencyProof | 10,000 | 5.11 ms   | 398  | 0    | 0    | 3.29 MB    |
+| BuildTree        | 100    | 106.1 μs   | 13.9160 | 1.0986 | 0        | 116,595 B    |
+| BuildTree        | 1,000  | 1.041 ms   | 142.5781 | 44.9219 | 0        | 1,203,024 B  |
+| BuildTree        | 10,000 | 17.427 ms  | 1500.0000 | 625.0000 | 156.2500 | 11,569,279 B |
+| AuditProof       | 100    | 353.6 ns   | 0.1230 | 0      | 0        | 1,033 B      |
+| AuditProof       | 1,000  | 1.371 μs   | 0.1869 | 0      | 0        | 1,574 B      |
+| AuditProof       | 10,000 | 10.460 μs  | 0.2441 | 0      | 0        | 2,076 B      |
+| ConsistencyProof | 100    | 125.4 ns   | 0.0715 | 0      | 0        | 600 B        |
+| ConsistencyProof | 1,000  | 172.5 ns   | 0.1032 | 0      | 0        | 864 B        |
+| ConsistencyProof | 10,000 | 224.7 ns   | 0.1233 | 0.0002 | 0        | 1,032 B      |
 ```
 
 ## Acknowledgements

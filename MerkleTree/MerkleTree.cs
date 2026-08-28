@@ -426,9 +426,10 @@ namespace Clifton.Blockchain
             }
 
             int leftLeafCount = LargestPowerOfTwoLessThan(nodeLeafCount);
-            Contract(
-                () => node.LeftNode != null,
-                $"Invalid tree structure for a consistency proof (node leaves: {nodeLeafCount}, actual leaves: {node.Leaves().Count()}, old leaves: {oldLeafCount}, is leaf: {node.IsLeaf}).");
+            // Keep the successful path O(tree height). Interpolating node.Leaves().Count()
+            // in the contract message would enumerate the entire subtree even when the
+            // contract condition is true.
+            Contract(() => node.LeftNode != null, "Invalid tree structure for a consistency proof.");
 
             if (oldLeafCount <= leftLeafCount)
             {
