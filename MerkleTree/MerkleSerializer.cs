@@ -111,13 +111,20 @@ namespace Clifton.Blockchain
             }
 
             if (package.TreeMetadata.OldLeafCount <= 0 ||
-                package.TreeMetadata.NewLeafCount <= package.TreeMetadata.OldLeafCount ||
+                package.TreeMetadata.NewLeafCount < package.TreeMetadata.OldLeafCount ||
                 !IsSupportedHashAlgorithm(package.TreeMetadata.HashAlgorithm) ||
                 !IsValidHash(package.TreeMetadata.OldRootHash, package.TreeMetadata.HashAlgorithm) ||
                 !IsValidHash(package.TreeMetadata.NewRootHash, package.TreeMetadata.HashAlgorithm) ||
                 package.Proof.ProofPath == null)
             {
                 throw new MerkleException("Failed to deserialize consistency proof package due to missing required properties.");
+            }
+
+            if (package.TreeMetadata.NewLeafCount == package.TreeMetadata.OldLeafCount &&
+                (!string.Equals(package.TreeMetadata.OldRootHash, package.TreeMetadata.NewRootHash, StringComparison.OrdinalIgnoreCase) ||
+                 package.Proof.ProofPath.Count != 0))
+            {
+                throw new MerkleException("Failed to deserialize consistency proof package due to an invalid same-size proof.");
             }
 
             for (int i = 0; i < package.Proof.ProofPath.Count; i++)

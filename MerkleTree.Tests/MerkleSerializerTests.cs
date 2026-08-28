@@ -118,6 +118,42 @@ namespace MerkleTree.Tests
         }
 
         [Fact]
+        public void Serialization_RoundTrip_ConsistencyProofPackage_SameTreeSize()
+        {
+            var tree = new Clifton.Blockchain.MerkleTree();
+            tree.AppendLeaf(MerkleHash.Create("leaf1"));
+            tree.AppendLeaf(MerkleHash.Create("leaf2"));
+            var rootHash = tree.BuildTree();
+            var proof = tree.ConsistencyProof(2);
+
+            Assert.True(Clifton.Blockchain.MerkleTree.VerifyConsistency(rootHash, rootHash, 2, 2, proof));
+
+            var package = new ConsistencyProofPackage
+            {
+                Timestamp = DateTime.UtcNow,
+                TreeMetadata = new ConsistencyTreeMetadata
+                {
+                    OldRootHash = rootHash.ToHex(),
+                    NewRootHash = rootHash.ToHex(),
+                    OldLeafCount = 2,
+                    NewLeafCount = 2,
+                    HashAlgorithm = "SHA256"
+                },
+                Proof = new ConsistencyProof
+                {
+                    ProofPath = new List<ProofNode>()
+                }
+            };
+
+            var json = MerkleSerializer.SerializeConsistencyProofPackage(package);
+            var deserialized = MerkleSerializer.DeserializeConsistencyProofPackage(json);
+
+            Assert.Equal(2, deserialized.TreeMetadata.OldLeafCount);
+            Assert.Equal(2, deserialized.TreeMetadata.NewLeafCount);
+            Assert.Empty(deserialized.Proof.ProofPath);
+        }
+
+        [Fact]
         public void Deserialization_MalformedJson_ThrowsException()
         {
             // Arrange
